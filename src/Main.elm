@@ -1,17 +1,13 @@
 module Main exposing (..)
--- Press buttons to increment and decrement a counter.
---
--- Read how it works:
---   https://guide.elm-lang.org/architecture/buttons.html
---
-
 
 import Browser
 import Html exposing (Html, button, div, text, input)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
+import Html.Keyed exposing (node)
 
-
+myNode =
+  node "div" 
 
 -- MAIN
 
@@ -19,43 +15,56 @@ import Html.Events exposing (onClick, onInput)
 main =
   Browser.sandbox { init = init, update = update, view = view }
 
-
-
 -- MODEL
 
 
-type alias Model = List (Html Msg)
+type alias Model = List (Task)
 
 
 init : Model
-init = [div [] [ text "i am at the top of the list" ] ]
+init = []
 
 
 
 -- UPDATE
 
+type alias Id = Int
+
 type Msg
   = AddTask
-  | UpdateTask String
+  | UpdateTask Id String
 
 
-update : Msg -> Model -> Model
+update :   Msg -> Model -> Model
 update msg model =
   case msg of
     AddTask ->
-      List.append model [task "task"]
-    UpdateTask string ->
-      model
+      case (List.head model) of
+        Just task ->
+          (Task (task.id + 1) "") :: model
+        Nothing ->
+          (Task 0 "") :: model
+    UpdateTask id string ->
+      let
+          updateOneTask task =
+            if task.id == id then
+              {task | comment = string}
+            else
+              task
+      in
+        List.map updateOneTask model
 
 
 
 -- VIEW
 
-task : String -> Html Msg
-task task_text =
+type alias Task = { id : Id, comment : String }
+
+viewTask : Task -> Html Msg
+viewTask task =
   div []
-    [ text task_text
-    , input [ placeholder "new task", value "", onInput UpdateTask ] []
+    [ text task.comment
+    , input [ placeholder "new task", onInput (UpdateTask task.id)] []
     ]
 
 add_task_button =
@@ -63,4 +72,7 @@ add_task_button =
 
 view : Model -> Html Msg
 view model =
-  div [] (List.append model [add_task_button])
+  div []
+  [ div [] (List.map viewTask model)
+  , add_task_button
+  ]
