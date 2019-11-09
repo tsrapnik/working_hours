@@ -1,0 +1,107 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    width: 98%;
+    height: 100%;
+    
+    font-family: 'Open Sans', sans-serif;
+    background: #374e45;
+}
+
+button {
+    background-color: rgba(255, 255, 255, 0.4);
+    border: none;
+    font-size: 15px;
+}
+
+button:hover {
+    background-color: rgba(255, 255, 255, 0.55);
+}
+
+button:active {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+input {
+    color: rgba(255, 255, 255, 0.55);
+    background-color: rgba(0, 0, 0, 0.3);
+    border: none;
+    margin: 2px;
+}
+
+input:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.task .close_button {
+    background-color: rgba(0, 0, 0, 0);
+}
+
+.task .close_button:hover {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.task .top_row {
+    display: grid;
+    grid-template-columns: auto auto;
+}
+
+.task .bottom_row {
+    display: grid;
+    grid-template-columns: auto auto;
+}
+
+.task {
+    background-color: rgba(255, 255, 255, 0.1);
+    padding: 2px;
+    margin: 4px;
+    display: grid;
+    grid-template-rows: auto auto;
+}
+
+.day {
+    color: rgba(255, 255, 255, 0.5);
+    text-align: center;
+}
+
+.day .required_minutes {
+    background-color: rgba(0, 0, 0, 0.3);
+    padding: 2px;
+    margin: 4px;
+    display: grid;
+}
+
+.week {
+    display: grid;
+    grid-template-columns: auto auto auto auto auto auto auto;
+}
+
+#menu_window {
+    display: grid;
+    margin: 20px 4px;
+    grid-template-columns: 30% auto auto auto 30%;
+}
+
+#save_state {
+    margin: 4px;
+    width: 80px;
+    grid-column: 2;
+}
+
+#load_state {
+    margin: 4px;
+    width: 80px;
+    grid-column: 3;
+}
+
+#clear_state {
+    margin: 4px;
+    width: 80px;
+    grid-column: 4;
+}
+
+#anchor {
+    visibility: hidden;
+}
