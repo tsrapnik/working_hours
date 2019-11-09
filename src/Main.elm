@@ -27,6 +27,9 @@ minutesToString timeInMinutes =
       else
         "--:--"
 
+stringToMinutes string =
+  Just  671
+
 main =
   Browser.sandbox { init = init, update = update, view = view }
 
@@ -54,11 +57,34 @@ type Msg
 update : Msg -> Model -> Model
 update msg model =
   let
-    applyToDayWithSameName function dayName day =
-      if day.dayName == dayName then
-        function day
-      else
-        day
+    applyToDayWithSameName: (Day -> Day) -> DayName -> Model
+    applyToDayWithSameName function dayName =
+      let
+        applyIfDayWithSameName: Day -> Day
+        applyIfDayWithSameName day =
+          if day.dayName == dayName then
+            function day
+          else
+            day
+      in
+      List.map applyIfDayWithSameName model
+
+    applyToTaskWithSameTaskId: (Task -> Task) -> TaskId -> Model
+    applyToTaskWithSameTaskId function taskId =
+      let
+        applyToTaskWithSameId: Day -> Day
+        applyToTaskWithSameId day =
+          let
+            applyIfTaskWithSameId: Task -> Task
+            applyIfTaskWithSameId task =
+              if task.taskId.task == taskId.task then
+                function task
+              else
+                task
+          in
+            {day | tasks = (List.map applyIfTaskWithSameId day.tasks) }
+      in
+      applyToDayWithSameName applyToTaskWithSameId taskId.day
   in
 
   case msg of
@@ -76,19 +102,34 @@ update msg model =
             Nothing ->
               addTask day 0
       in
-      List.map (applyToDayWithSameName addTaskWithCorrectId dayName) model
+      applyToDayWithSameName addTaskWithCorrectId dayName
 
     RemoveTask taskId ->
-      model
+      applyToTaskWithSameTaskId identity taskId
 
     SetComment taskId comment ->
-      model
+      let
+        setComment: Task -> Task
+        setComment task =
+          {task | comment = comment}
+      in
+      applyToTaskWithSameTaskId setComment taskId
 
     SetStartTime taskId startTime ->
-      model
+      let
+        setComment: Task -> Task
+        setComment task =
+          {task | startTime = stringToMinutes startTime}
+      in
+      applyToTaskWithSameTaskId setComment taskId
 
     SetStopTime taskId stopTime ->
-      model
+      let
+        setComment: Task -> Task
+        setComment task =
+          {task | stopTime = stringToMinutes stopTime}
+      in
+      applyToTaskWithSameTaskId setComment taskId
 
 type alias Task =
   { taskId : TaskId

@@ -8,6 +8,12 @@
             "type": "shell",
             "command": "elm make src/Main.elm --output=script.js",
             "problemMatcher": []
+        },
+        {
+            "label": "build debug",
+            "type": "shell",
+            "command": "elm make src/Main.elm --output=script.js --debug",
+            "problemMatcher": []
         }
     ]
 }
