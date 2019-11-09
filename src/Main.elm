@@ -6,73 +6,189 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 import Html.Keyed exposing (node)
 
-myNode =
-  node "div" 
+--todo: replace all class identifiers with elm style css.
 
--- MAIN
+minutesToString timeInMinutes =
+  case timeInMinutes of
+    Nothing ->
+        "--:--"
 
+    Just minutes ->
+      let
+          absoluteMinutes = abs minutes
+          maxMinutes = 99 * 60 + 59
+      in
+      if absoluteMinutes <= maxMinutes then
+        let
+            hours = absoluteMinutes // 60
+            remainingMinutes = remainderBy 60 absoluteMinutes
+        in
+          (String.fromInt hours) ++ ":" ++ (String.fromInt remainingMinutes)
+      else
+        "--:--"
 
 main =
   Browser.sandbox { init = init, update = update, view = view }
 
--- MODEL
-
-
-type alias Model = List (Task)
-
+type alias Model = List(Day)
 
 init : Model
-init = []
-
-
-
--- UPDATE
+init = workWeek
 
 type alias Id = Int
+type alias TaskId =
+  { day : DayName
+  , task : Id
+  }
+
+type alias TimeInMinutes = Maybe Int
 
 type Msg
-  = AddTask
-  | UpdateTask Id String
+  = AddTask DayName
+  | RemoveTask TaskId
+  | SetComment TaskId String
+  | SetStartTime TaskId String
+  | SetStopTime  TaskId String
 
 
-update :   Msg -> Model -> Model
+update : Msg -> Model -> Model
 update msg model =
+  let
+    applyToDayWithSameName function dayName day =
+      if day.dayName == dayName then
+        function day
+      else
+        day
+  in
+
   case msg of
-    AddTask ->
-      case (List.head model) of
-        Just task ->
-          (Task (task.id + 1) "") :: model
-        Nothing ->
-          (Task 0 "") :: model
-    UpdateTask id string ->
+    AddTask dayName ->
       let
-          updateOneTask task =
-            if task.id == id then
-              {task | comment = string}
-            else
-              task
+        addTask: Day -> Id -> Day
+        addTask day newId =
+          { day | tasks = ((emptyTask day.dayName newId) :: day.tasks) }
+
+        addTaskWithCorrectId: Day -> Day
+        addTaskWithCorrectId day =
+          case (List.head day.tasks) of
+            Just previousTask ->
+              addTask day (previousTask.taskId.task + 1)
+            Nothing ->
+              addTask day 0
       in
-        List.map updateOneTask model
+      List.map (applyToDayWithSameName addTaskWithCorrectId dayName) model
 
+    RemoveTask taskId ->
+      model
 
+    SetComment taskId comment ->
+      model
 
--- VIEW
+    SetStartTime taskId startTime ->
+      model
 
-type alias Task = { id : Id, comment : String }
+    SetStopTime taskId stopTime ->
+      model
+
+type alias Task =
+  { taskId : TaskId
+  , comment : String
+  , startTime : TimeInMinutes
+  , stopTime : TimeInMinutes
+  }
+
+emptyTask: DayName -> Id -> Task
+emptyTask day id =
+  { taskId =
+      { day = day
+      , task = id
+      }
+  , comment = ""
+  , startTime = Nothing
+  , stopTime = Nothing
+  }
 
 viewTask : Task -> Html Msg
 viewTask task =
-  div []
-    [ text task.comment
-    , input [ placeholder "new task", onInput (UpdateTask task.id)] []
+  div [class "task"]
+    [ div[class "top_row"]
+        [ input [ class "comment"
+                , type_ "text"
+                , value task.comment
+                , onInput (SetComment task.taskId)
+                ]
+                []
+        , button [ class "close_button"
+                 , onClick (RemoveTask task.taskId)
+                 ]
+                 [text "x"]
+        ]
+    , div[class "bottom_row"]
+        [ input [ class "start_time"
+                , type_ "time"
+                , value (minutesToString task.startTime)
+                , onInput (SetStartTime task.taskId)
+                ]
+                []
+        , input [ class "stop_time"
+                , type_ "time"
+                , value (minutesToString task.stopTime)
+                , onInput (SetStopTime task.taskId)
+                ]
+                []
+        ]
     ]
 
-add_task_button =
-  button [ onClick AddTask ] [ text "add task" ]
+type DayName
+  = Monday
+  | Tuesday
+  | Wednesday
+  | Thursday
+  | Friday
+
+daynameToString dayName =
+  case dayName of
+      Monday ->
+        "monday"
+      Tuesday ->
+        "tuesday"
+      Wednesday ->
+        "wednesday"
+      Thursday ->
+        "thursday"
+      Friday ->
+        "friday"
+
+type alias Day =
+  { dayName : DayName
+  , tasks : List(Task)
+  }
+
+viewDay day =
+  div [class "day"]
+    [ text (daynameToString day.dayName)
+    , div [class "tasks"] (List.map viewTask day.tasks)
+    , button [ onClick (AddTask day.dayName) ] [ text "add task" ]
+    ]
+
+workWeek =
+  [ { dayName = Monday
+    , tasks = []
+    }
+  , { dayName = Tuesday
+    , tasks = []
+    }
+  , { dayName = Wednesday
+    , tasks = []
+    }
+  , { dayName = Thursday
+    , tasks = []
+    }
+  , { dayName = Friday
+    , tasks = []
+    }
+  ]
 
 view : Model -> Html Msg
 view model =
-  div []
-  [ div [] (List.map viewTask model)
-  , add_task_button
-  ]
+  div [class "week"] (List.map viewDay model)
