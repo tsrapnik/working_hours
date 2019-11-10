@@ -135,7 +135,15 @@ update msg model =
       applyToDayWithSameName addTaskWithCorrectId dayName
 
     RemoveTask taskId ->
-      applyToTaskWithSameTaskId identity taskId
+      let
+        removeTaskFromList: List(Task) -> List(Task)
+        removeTaskFromList tasks =
+          Tuple.second (List.partition (\task -> task.taskId.task == taskId.task) tasks)
+        removeTaskFromDay: Day -> Day
+        removeTaskFromDay day =
+          {day | tasks = removeTaskFromList day.tasks}
+      in
+      applyToDayWithSameName removeTaskFromDay taskId.day
 
     SetComment taskId comment ->
       let
@@ -238,7 +246,7 @@ type alias Day =
 viewDay day =
   div [class "day"]
     [ text (daynameToString day.dayName)
-    , div [class "tasks"] (List.map viewTask day.tasks)
+    , div [class "tasks"] (List.map viewTask (List.reverse day.tasks)) 
     , button [ onClick (AddTask day.dayName) ] [ text "add task" ]
     ]
 
