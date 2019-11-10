@@ -78,11 +78,12 @@ type Msg
   | SetComment DayName TaskId String
   | SetStartTime DayName TaskId String
   | SetStopTime DayName  TaskId String
-
+ 
 --apply a function to all elements of a list which satisfy a given validation function.
 applyToElementsWhichSatisfy: (a -> Bool) -> (a -> a) -> List(a) -> List(a)
 applyToElementsWhichSatisfy validation function list =
   let
+      applyIfSatisfies: a -> a
       applyIfSatisfies element =
         if validation element then
           function element
@@ -90,7 +91,6 @@ applyToElementsWhichSatisfy validation function list =
           element
   in
   List.map applyIfSatisfies list
-
 
 update : Msg -> Model -> Model
 update msg model =
@@ -103,9 +103,17 @@ update msg model =
     hasSameTaskId taskId task =
       taskId == task.taskId
 
-    applyToTasksWhichSatisfy: (Task -> Bool) -> (Task -> Task) -> Day -> Day
-    applyToTasksWhichSatisfy validation function day =
-      {day | tasks = (applyToElementsWhichSatisfy validation function day.tasks)}
+    applyToTasksWhichSatisfy: (Day -> Bool) -> (Task -> Bool) -> (Task -> Task) -> List(Day) -> List(Day)
+    applyToTasksWhichSatisfy dayCondition taskCondition function days =
+      let
+        tasksFunction: List(Task) -> List(Task)
+        tasksFunction tasks =
+          applyToElementsWhichSatisfy taskCondition function tasks
+        dayFunction: Day -> Day
+        dayFunction day =
+          {day | tasks = tasksFunction day.tasks}
+      in
+      applyToElementsWhichSatisfy dayCondition dayFunction days
   in
 
   case msg of
@@ -142,7 +150,7 @@ update msg model =
         setComment task =
           {task | comment = comment}
       in
-      {model | days = applyToElementsWhichSatisfy (hasSameDayName dayName) (applyToTasksWhichSatisfy (hasSameTaskId taskId) setComment) model.days}
+      {model | days = applyToTasksWhichSatisfy (hasSameDayName dayName) (hasSameTaskId taskId) setComment model.days}
 
     SetStartTime dayName taskId startTime ->
       let
@@ -150,7 +158,7 @@ update msg model =
         setStartTime task =
           {task | startTime = stringToMinutes startTime}
       in
-      {model | days = applyToElementsWhichSatisfy (hasSameDayName dayName) (applyToTasksWhichSatisfy (hasSameTaskId taskId) setStartTime) model.days}
+      {model | days = applyToTasksWhichSatisfy (hasSameDayName dayName) (hasSameTaskId taskId) setStartTime model.days}
 
     SetStopTime dayName taskId stopTime ->
       let
@@ -158,7 +166,7 @@ update msg model =
         setStopTime task =
           {task | stopTime = stringToMinutes stopTime}
       in
-      {model | days = applyToElementsWhichSatisfy (hasSameDayName dayName) (applyToTasksWhichSatisfy (hasSameTaskId taskId) setStopTime) model.days}
+      {model | days = applyToTasksWhichSatisfy (hasSameDayName dayName) (hasSameTaskId taskId) setStopTime model.days}
 
 type alias Task =
   { taskId : TaskId
