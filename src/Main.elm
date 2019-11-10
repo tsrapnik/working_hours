@@ -8,27 +8,57 @@ import Html.Keyed exposing (node)
 
 --todo: replace all class identifiers with elm style css.
 
+--if input has a value output is in the format hh:mm, where mm
+--can be 00 to 59 and hh can be 00 to 99. if the int cannot 
+--get converted to this format or has no value --:-- is returned.
+minutesToString: TimeInMinutes -> String
 minutesToString timeInMinutes =
+  let
+      invalidTime = "--:--"
+  in
+  
   case timeInMinutes of
     Nothing ->
-        "--:--"
-
+        invalidTime
     Just minutes ->
       let
-          absoluteMinutes = abs minutes
+          minMinutes = 0
           maxMinutes = 99 * 60 + 59
       in
-      if absoluteMinutes <= maxMinutes then
-        let
-            hours = absoluteMinutes // 60
-            remainingMinutes = remainderBy 60 absoluteMinutes
-        in
-          (String.fromInt hours) ++ ":" ++ (String.fromInt remainingMinutes)
+      if (minutes > maxMinutes) || (minutes < minMinutes) then
+        invalidTime
       else
-        "--:--"
+        let
+          hours = minutes // 60
+          remainingMinutes = remainderBy 60 minutes
 
+          --we have already checked if int has valid values.
+          intToTwoDigitString: Int -> String
+          intToTwoDigitString int =
+            if (int < 10) then
+              "0" ++ String.fromInt int
+            else
+              String.fromInt int
+        in
+          (intToTwoDigitString hours) ++ ":" ++ (intToTwoDigitString remainingMinutes)
+
+--convert format hh:mm to int in minutes. hh can be from 00 to 99 and minute from
+--00 to 59. all other formats return a nothing value.
+stringToMinutes: String -> TimeInMinutes
 stringToMinutes string =
-  Just  671
+  let
+      maybeHours = String.toInt (String.slice 0 2 string)
+      separatorIsCorrect = (String.slice 2 3 string) == ":"
+      maybeMinutes = String.toInt (String.slice 3 5 string)
+  in
+    case (maybeHours, separatorIsCorrect, maybeMinutes) of
+        (Just hours, True, Just minutes) ->
+          if (hours < 0) || (hours > 99) || (minutes < 0) || (minutes > 59) then
+            Nothing
+          else
+            Just (hours * 60 + minutes)
+        default ->
+          Nothing
 
 main =
   Browser.sandbox { init = init, update = update, view = view }
