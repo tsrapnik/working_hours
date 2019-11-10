@@ -63,111 +63,102 @@ stringToMinutes string =
 main =
   Browser.sandbox { init = init, update = update, view = view }
 
-type alias Model = List(Day)
+type alias Model = {days: List(Day)}
 
 init : Model
-init = workWeek
+init = {days =workWeek}
 
-type alias Id = Int
-type alias TaskId =
-  { day : DayName
-  , task : Id
-  }
+type alias TaskId = Int
 
 type alias TimeInMinutes = Maybe Int
 
 type Msg
   = AddTask DayName
-  | RemoveTask TaskId
-  | SetComment TaskId String
-  | SetStartTime TaskId String
-  | SetStopTime  TaskId String
+  | RemoveTask DayName TaskId
+  | SetComment DayName TaskId String
+  | SetStartTime DayName TaskId String
+  | SetStopTime DayName  TaskId String
+
+--apply a function to all elements of a list which satisfy a given validation function.
+applyToElementsWhichSatisfy: (a -> Bool) -> (a -> a) -> List(a) -> List(a)
+applyToElementsWhichSatisfy validation function list =
+  let
+      applyIfSatisfies element =
+        if validation element then
+          function element
+        else
+          element
+  in
+  List.map applyIfSatisfies list
 
 
 update : Msg -> Model -> Model
 update msg model =
   let
-    applyToDayWithSameName: (Day -> Day) -> DayName -> Model
-    applyToDayWithSameName function dayName =
-      let
-        applyIfDayWithSameName: Day -> Day
-        applyIfDayWithSameName day =
-          if day.dayName == dayName then
-            function day
-          else
-            day
-      in
-      List.map applyIfDayWithSameName model
+    hasSameDayName: DayName -> Day -> Bool
+    hasSameDayName dayName day =
+      dayName == day.dayName
 
-    applyToTaskWithSameTaskId: (Task -> Task) -> TaskId -> Model
-    applyToTaskWithSameTaskId function taskId =
-      let
-        applyToTaskWithSameId: Day -> Day
-        applyToTaskWithSameId day =
-          let
-            applyIfTaskWithSameId: Task -> Task
-            applyIfTaskWithSameId task =
-              if task.taskId.task == taskId.task then
-                function task
-              else
-                task
-          in
-            {day | tasks = (List.map applyIfTaskWithSameId day.tasks) }
-      in
-      applyToDayWithSameName applyToTaskWithSameId taskId.day
+    hasSameTaskId: TaskId -> Task -> Bool
+    hasSameTaskId taskId task =
+      taskId == task.taskId
+
+    applyToTasksWhichSatisfy: (Task -> Bool) -> (Task -> Task) -> Day -> Day
+    applyToTasksWhichSatisfy validation function day =
+      {day | tasks = (applyToElementsWhichSatisfy validation function day.tasks)}
   in
 
   case msg of
     AddTask dayName ->
       let
-        addTask: Day -> Id -> Day
+        addTask: Day -> TaskId -> Day
         addTask day newId =
-          { day | tasks = ((emptyTask day.dayName newId) :: day.tasks) }
+          { day | tasks = ((emptyTask newId) :: day.tasks) }
 
         addTaskWithCorrectId: Day -> Day
         addTaskWithCorrectId day =
           case (List.head day.tasks) of
             Just previousTask ->
-              addTask day (previousTask.taskId.task + 1)
+              addTask day (previousTask.taskId + 1)
             Nothing ->
               addTask day 0
       in
-      applyToDayWithSameName addTaskWithCorrectId dayName
+      {model | days = applyToElementsWhichSatisfy (hasSameDayName dayName) addTaskWithCorrectId model.days}
 
-    RemoveTask taskId ->
+    RemoveTask dayName taskId ->
       let
         removeTaskFromList: List(Task) -> List(Task)
         removeTaskFromList tasks =
-          Tuple.second (List.partition (\task -> task.taskId.task == taskId.task) tasks)
+          Tuple.second (List.partition (\task -> task.taskId == taskId) tasks)
         removeTaskFromDay: Day -> Day
         removeTaskFromDay day =
           {day | tasks = removeTaskFromList day.tasks}
       in
-      applyToDayWithSameName removeTaskFromDay taskId.day
+      {model | days = applyToElementsWhichSatisfy (hasSameDayName dayName) removeTaskFromDay model.days}
 
-    SetComment taskId comment ->
+    SetComment dayName taskId comment ->
       let
         setComment: Task -> Task
         setComment task =
           {task | comment = comment}
       in
-      applyToTaskWithSameTaskId setComment taskId
+      {model | days = applyToElementsWhichSatisfy (hasSameDayName dayName) (applyToTasksWhichSatisfy (hasSameTaskId taskId) setComment) model.days}
 
-    SetStartTime taskId startTime ->
+    SetStartTime dayName taskId startTime ->
       let
-        setComment: Task -> Task
-        setComment task =
+        setStartTime: Task -> Task
+        setStartTime task =
           {task | startTime = stringToMinutes startTime}
       in
-      applyToTaskWithSameTaskId setComment taskId
+      {model | days = applyToElementsWhichSatisfy (hasSameDayName dayName) (applyToTasksWhichSatisfy (hasSameTaskId taskId) setStartTime) model.days}
 
-    SetStopTime taskId stopTime ->
+    SetStopTime dayName taskId stopTime ->
       let
-        setComment: Task -> Task
-        setComment task =
+        setStopTime: Task -> Task
+        setStopTime task =
           {task | stopTime = stringToMinutes stopTime}
       in
-      applyToTaskWithSameTaskId setComment taskId
+      {model | days = applyToElementsWhichSatisfy (hasSameDayName dayName) (applyToTasksWhichSatisfy (hasSameTaskId taskId) setStopTime) model.days}
 
 type alias Task =
   { taskId : TaskId
@@ -176,29 +167,26 @@ type alias Task =
   , stopTime : TimeInMinutes
   }
 
-emptyTask: DayName -> Id -> Task
-emptyTask day id =
-  { taskId =
-      { day = day
-      , task = id
-      }
+emptyTask: TaskId -> Task
+emptyTask taskId =
+  { taskId = taskId
   , comment = ""
   , startTime = Nothing
   , stopTime = Nothing
   }
 
-viewTask : Task -> Html Msg
-viewTask task =
+viewTask : DayName -> Task -> Html Msg
+viewTask dayName task =
   div [class "task"]
     [ div[class "top_row"]
         [ input [ class "comment"
                 , type_ "text"
                 , value task.comment
-                , onInput (SetComment task.taskId)
+                , onInput (SetComment dayName task.taskId)
                 ]
                 []
         , button [ class "close_button"
-                 , onClick (RemoveTask task.taskId)
+                 , onClick (RemoveTask dayName task.taskId)
                  ]
                  [text "x"]
         ]
@@ -206,13 +194,13 @@ viewTask task =
         [ input [ class "start_time"
                 , type_ "time"
                 , value (minutesToString task.startTime)
-                , onInput (SetStartTime task.taskId)
+                , onInput (SetStartTime dayName task.taskId)
                 ]
                 []
         , input [ class "stop_time"
                 , type_ "time"
                 , value (minutesToString task.stopTime)
-                , onInput (SetStopTime task.taskId)
+                , onInput (SetStopTime dayName task.taskId)
                 ]
                 []
         ]
@@ -246,7 +234,7 @@ type alias Day =
 viewDay day =
   div [class "day"]
     [ text (daynameToString day.dayName)
-    , div [class "tasks"] (List.map viewTask (List.reverse day.tasks)) 
+    , div [class "tasks"] (List.map (viewTask day.dayName) (List.reverse day.tasks)) 
     , button [ onClick (AddTask day.dayName) ] [ text "add task" ]
     ]
 
@@ -270,4 +258,4 @@ workWeek =
 
 view : Model -> Html Msg
 view model =
-  div [class "week"] (List.map viewDay model)
+  div [class "week"] (List.map viewDay model.days)
