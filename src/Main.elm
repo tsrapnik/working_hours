@@ -5,62 +5,76 @@ import Html exposing (Html, button, div, input, text)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 import Html.Keyed exposing (node)
+import Set
 
 
 
 --todo: replace all class identifiers with elm style css.
---if input has a value output is in the format hh:mm, where mm
---can be 00 to 59 and hh can be 00 to 99. if the int cannot
---get converted to this format or has no value --:-- is returned.
 
 
+{-| apply a function to all elements of a list which satisfy a given validation function.
+-}
+applyToElementsWhichSatisfy : (a -> Bool) -> (a -> a) -> List a -> List a
+applyToElementsWhichSatisfy validation function list =
+    let
+        applyIfSatisfies : a -> a
+        applyIfSatisfies element =
+            if validation element then
+                function element
+
+            else
+                element
+    in
+    List.map applyIfSatisfies list
+
+
+type alias TimeInMinutes =
+    
+
+
+{-| output is in the format hh:mm, where mm
+can be 00 to 59 and hh can be 00 to 99. if the int cannot
+get converted to this format --:-- is returned.
+-}
 minutesToString : TimeInMinutes -> String
 minutesToString timeInMinutes =
     let
         invalidTime =
             "--:--"
+
+        minMinutes =
+            0
+
+        maxMinutes =
+            99 * 60 + 59
     in
-    case timeInMinutes of
-        Nothing ->
-            invalidTime
+    if (timeInMinutes > maxMinutes) || (timeInMinutes < minMinutes) then
+        invalidTime
 
-        Just minutes ->
-            let
-                minMinutes =
-                    0
+    else
+        let
+            hours =
+                timeInMinutes // 60
 
-                maxMinutes =
-                    99 * 60 + 59
-            in
-            if (minutes > maxMinutes) || (minutes < minMinutes) then
-                invalidTime
+            remainingMinutes =
+                remainderBy 60 timeInMinutes
 
-            else
-                let
-                    hours =
-                        minutes // 60
+            --we have already checked if int has valid values.
+            intToTwoDigitString : Int -> String
+            intToTwoDigitString int =
+                if int < 10 then
+                    "0" ++ String.fromInt int
 
-                    remainingMinutes =
-                        remainderBy 60 minutes
-
-                    --we have already checked if int has valid values.
-                    intToTwoDigitString : Int -> String
-                    intToTwoDigitString int =
-                        if int < 10 then
-                            "0" ++ String.fromInt int
-
-                        else
-                            String.fromInt int
-                in
-                intToTwoDigitString hours ++ ":" ++ intToTwoDigitString remainingMinutes
+                else
+                    String.fromInt int
+        in
+        intToTwoDigitString hours ++ ":" ++ intToTwoDigitString remainingMinutes
 
 
-
---convert format hh:mm to int in minutes. hh can be from 00 to 99 and minute from
---00 to 59. all other formats return a nothing value.
-
-
-stringToMinutes : String -> TimeInMinutes
+{-| convert format hh:mm to int in minutes. hh can be from 00 to 99 and minute from
+00 to 59. all other formats return a nothing value.
+-}
+stringToMinutes : String -> Maybe TimeInMinutes
 stringToMinutes string =
     let
         maybeHours =
@@ -84,6 +98,137 @@ stringToMinutes string =
             Nothing
 
 
+dailyWorktime : Day -> Maybe TimeInMinutes
+dailyWorktime day =
+    Nothing
+
+
+type alias TaskId =
+    Int
+
+
+type alias Task =
+    { taskId : TaskId
+    , comment : String
+    , startTime : Maybe TimeInMinutes
+    , stopTime : Maybe TimeInMinutes
+    }
+
+
+emptyTask : TaskId -> Task
+emptyTask taskId =
+    { taskId = taskId
+    , comment = ""
+    , startTime = Nothing
+    , stopTime = Nothing
+    }
+
+
+viewTask : DayName -> Task -> Html Msg
+viewTask dayName task =
+    div [ class "task" ]
+        [ div [ class "top_row" ]
+            [ input
+                [ class "comment"
+                , type_ "text"
+                , value task.comment
+                , onInput (SetComment dayName task.taskId)
+                ]
+                []
+            , button
+                [ class "close_button"
+                , onClick (RemoveTask dayName task.taskId)
+                ]
+                [ text "x" ]
+            ]
+        , div [ class "bottom_row" ]
+            [ input
+                [ class "start_time"
+                , type_ "time"
+                , case task.startTime of
+                    Just time ->
+                        value (minutesToString time)
+
+                    Nothing ->
+                        value "--:--"
+                , onInput (SetStartTime dayName task.taskId)
+                ]
+                []
+            , input
+                [ class "stop_time"
+                , type_ "time"
+                ,  case task.stopTime of
+                    Just time ->
+                        value (minutesToString time)
+
+                    Nothing ->
+                        value "--:--"
+                , onInput (SetStopTime dayName task.taskId)
+                ]
+                []
+            ]
+        ]
+
+
+type alias Day =
+    { dayName : DayName
+    , tasks : List Task
+    }
+
+
+type DayName
+    = Monday
+    | Tuesday
+    | Wednesday
+    | Thursday
+    | Friday
+
+
+daynameToString dayName =
+    case dayName of
+        Monday ->
+            "monday"
+
+        Tuesday ->
+            "tuesday"
+
+        Wednesday ->
+            "wednesday"
+
+        Thursday ->
+            "thursday"
+
+        Friday ->
+            "friday"
+
+
+viewDay day =
+    div [ class "day" ]
+        [ text (daynameToString day.dayName)
+        , div [ class "tasks" ] (List.map (viewTask day.dayName) (List.reverse day.tasks))
+        , button [ onClick (AddTask day.dayName) ] [ text "add task" ]
+        ]
+
+
+workWeek =
+    [ { dayName = Monday
+      , tasks = []
+      }
+    , { dayName = Tuesday
+      , tasks = []
+      }
+    , { dayName = Wednesday
+      , tasks = []
+      }
+    , { dayName = Thursday
+      , tasks = []
+      }
+    , { dayName = Friday
+      , tasks = []
+      }
+    ]
+
+
 main =
     Browser.sandbox { init = init, update = update, view = view }
 
@@ -97,12 +242,9 @@ init =
     { days = workWeek }
 
 
-type alias TaskId =
-    Int
-
-
-type alias TimeInMinutes =
-    Maybe Int
+view : Model -> Html Msg
+view model =
+    div [ class "week" ] (List.map viewDay model.days)
 
 
 type Msg
@@ -111,24 +253,6 @@ type Msg
     | SetComment DayName TaskId String
     | SetStartTime DayName TaskId String
     | SetStopTime DayName TaskId String
-
-
-
---apply a function to all elements of a list which satisfy a given validation function.
-
-
-applyToElementsWhichSatisfy : (a -> Bool) -> (a -> a) -> List a -> List a
-applyToElementsWhichSatisfy validation function list =
-    let
-        applyIfSatisfies : a -> a
-        applyIfSatisfies element =
-            if validation element then
-                function element
-
-            else
-                element
-    in
-    List.map applyIfSatisfies list
 
 
 update : Msg -> Model -> Model
@@ -208,120 +332,3 @@ update msg model =
                     { task | stopTime = stringToMinutes stopTime }
             in
             { model | days = applyToTasksWhichSatisfy (hasSameDayName dayName) (hasSameTaskId taskId) setStopTime model.days }
-
-
-type alias Task =
-    { taskId : TaskId
-    , comment : String
-    , startTime : TimeInMinutes
-    , stopTime : TimeInMinutes
-    }
-
-
-emptyTask : TaskId -> Task
-emptyTask taskId =
-    { taskId = taskId
-    , comment = ""
-    , startTime = Nothing
-    , stopTime = Nothing
-    }
-
-
-viewTask : DayName -> Task -> Html Msg
-viewTask dayName task =
-    div [ class "task" ]
-        [ div [ class "top_row" ]
-            [ input
-                [ class "comment"
-                , type_ "text"
-                , value task.comment
-                , onInput (SetComment dayName task.taskId)
-                ]
-                []
-            , button
-                [ class "close_button"
-                , onClick (RemoveTask dayName task.taskId)
-                ]
-                [ text "x" ]
-            ]
-        , div [ class "bottom_row" ]
-            [ input
-                [ class "start_time"
-                , type_ "time"
-                , value (minutesToString task.startTime)
-                , onInput (SetStartTime dayName task.taskId)
-                ]
-                []
-            , input
-                [ class "stop_time"
-                , type_ "time"
-                , value (minutesToString task.stopTime)
-                , onInput (SetStopTime dayName task.taskId)
-                ]
-                []
-            ]
-        ]
-
-
-type DayName
-    = Monday
-    | Tuesday
-    | Wednesday
-    | Thursday
-    | Friday
-
-
-daynameToString dayName =
-    case dayName of
-        Monday ->
-            "monday"
-
-        Tuesday ->
-            "tuesday"
-
-        Wednesday ->
-            "wednesday"
-
-        Thursday ->
-            "thursday"
-
-        Friday ->
-            "friday"
-
-
-type alias Day =
-    { dayName : DayName
-    , tasks : List Task
-    }
-
-
-viewDay day =
-    div [ class "day" ]
-        [ text (daynameToString day.dayName)
-        , div [ class "tasks" ] (List.map (viewTask day.dayName) (List.reverse day.tasks))
-        , button [ onClick (AddTask day.dayName) ] [ text "add task" ]
-        ]
-
-
-workWeek =
-    [ { dayName = Monday
-      , tasks = []
-      }
-    , { dayName = Tuesday
-      , tasks = []
-      }
-    , { dayName = Wednesday
-      , tasks = []
-      }
-    , { dayName = Thursday
-      , tasks = []
-      }
-    , { dayName = Friday
-      , tasks = []
-      }
-    ]
-
-
-view : Model -> Html Msg
-view model =
-    div [ class "week" ] (List.map viewDay model.days)
