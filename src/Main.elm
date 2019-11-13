@@ -1,7 +1,7 @@
 module Main exposing (..)
 
 import Browser
-import Html exposing (Html, button, div, input, text)
+import Html exposing (Html, button, div, input, text, time)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 import Html.Keyed exposing (node)
@@ -29,8 +29,11 @@ applyToElementsWhichSatisfy validation function list =
 
 
 type alias TimeInMinutes =
-    
+    Int
 
+invalidTimeString: String
+invalidTimeString =
+    "--:--"
 
 {-| output is in the format hh:mm, where mm
 can be 00 to 59 and hh can be 00 to 99. if the int cannot
@@ -39,8 +42,6 @@ get converted to this format --:-- is returned.
 minutesToString : TimeInMinutes -> String
 minutesToString timeInMinutes =
     let
-        invalidTime =
-            "--:--"
 
         minMinutes =
             0
@@ -49,7 +50,7 @@ minutesToString timeInMinutes =
             99 * 60 + 59
     in
     if (timeInMinutes > maxMinutes) || (timeInMinutes < minMinutes) then
-        invalidTime
+        invalidTimeString
 
     else
         let
@@ -94,13 +95,34 @@ stringToMinutes string =
             else
                 Just (hours * 60 + minutes)
 
-        default ->
+        _ ->
             Nothing
 
 
+taskTime : Task -> Maybe TimeInMinutes
+taskTime task =
+     case (task.startTime, task.stopTime) of
+         (Just startTime, Just stopTime) ->
+             Just (stopTime - startTime)
+
+         _ ->
+             Nothing
+
 dailyWorktime : Day -> Maybe TimeInMinutes
 dailyWorktime day =
-    Nothing
+    let
+        maybeAdd: Maybe TimeInMinutes -> Maybe TimeInMinutes -> Maybe TimeInMinutes
+        maybeAdd first second =
+            case (first, second) of
+                (Just firstTime, Just secondTime) ->
+                    Just (firstTime + secondTime)
+
+                _ ->
+                    Nothing
+    in
+    day.tasks
+        |> List.map taskTime
+        |> List.foldl maybeAdd (Just 0)
 
 
 type alias TaskId =
@@ -150,7 +172,7 @@ viewTask dayName task =
                         value (minutesToString time)
 
                     Nothing ->
-                        value "--:--"
+                        value invalidTimeString
                 , onInput (SetStartTime dayName task.taskId)
                 ]
                 []
@@ -162,7 +184,7 @@ viewTask dayName task =
                         value (minutesToString time)
 
                     Nothing ->
-                        value "--:--"
+                        value invalidTimeString
                 , onInput (SetStopTime dayName task.taskId)
                 ]
                 []
@@ -201,11 +223,19 @@ daynameToString dayName =
         Friday ->
             "friday"
 
-
-viewDay day =
+viewDay: Maybe TimeInMinutes -> Day -> Html Msg
+viewDay requiredMinutes day =
     div [ class "day" ]
         [ text (daynameToString day.dayName)
         , div [ class "tasks" ] (List.map (viewTask day.dayName) (List.reverse day.tasks))
+        , time [ class "required_minutes" ]
+            [ case requiredMinutes of
+                Just minutes ->
+                    text (minutesToString minutes)
+            
+                Nothing ->
+                    text invalidTimeString
+            ]
         , button [ onClick (AddTask day.dayName) ] [ text "add task" ]
         ]
 
@@ -244,7 +274,21 @@ init =
 
 view : Model -> Html Msg
 view model =
-    div [ class "week" ] (List.map viewDay model.days)
+    let
+        addAccumulatedDailyWorktimeToList : Day -> List(Maybe TimeInMinutes) -> List(Maybe TimeInMinutes)
+        addAccumulatedDailyWorktimeToList day list =
+            case (dailyWorktime day, List.head list) of
+                (Just newTime, Nothing) ->
+                    Just newTime :: list
+                (Just newTime, Just (Just accumulatedTime)) ->
+                    Just (newTime + accumulatedTime) :: list
+                _ ->
+                    Nothing :: list
+                
+        requiredMinutes : List(Maybe TimeInMinutes)
+        requiredMinutes = List.reverse (List.foldl addAccumulatedDailyWorktimeToList [] model.days)
+    in
+    div [ class "week" ] (List.map2 viewDay requiredMinutes model.days)
 
 
 type Msg
