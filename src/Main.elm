@@ -5,28 +5,11 @@ import Html exposing (Html, button, div, input, text, time)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 import Html.Keyed exposing (node)
-import Set
+import List.Extra exposing (updateIf)
 
 
 
 --todo: replace all class identifiers with elm style css.
-
-
-{-| apply a function to all elements of a list which satisfy a given validation function.
--}
-applyToElementsWhichSatisfy : (a -> Bool) -> (a -> a) -> List a -> List a
-applyToElementsWhichSatisfy validation function list =
-    let
-        applyIfSatisfies : a -> a
-        applyIfSatisfies element =
-            if validation element then
-                function element
-
-            else
-                element
-    in
-    List.map applyIfSatisfies list
-
 
 type alias TimeInMinutes =
     Int
@@ -315,13 +298,13 @@ update msg model =
             let
                 tasksFunction : List Task -> List Task
                 tasksFunction tasks =
-                    applyToElementsWhichSatisfy taskCondition function tasks
+                    List.Extra.updateIf taskCondition function tasks
 
                 dayFunction : Day -> Day
                 dayFunction day =
                     { day | tasks = tasksFunction day.tasks }
             in
-            applyToElementsWhichSatisfy dayCondition dayFunction days
+            List.Extra.updateIf dayCondition dayFunction days
     in
     case msg of
         AddTask dayName ->
@@ -339,7 +322,7 @@ update msg model =
                         Nothing ->
                             addTask day 0
             in
-            { model | days = applyToElementsWhichSatisfy (hasSameDayName dayName) addTaskWithCorrectId model.days }
+            { model | days = List.Extra.updateIf (hasSameDayName dayName) addTaskWithCorrectId model.days }
 
         RemoveTask dayName taskId ->
             let
@@ -351,7 +334,7 @@ update msg model =
                 removeTaskFromDay day =
                     { day | tasks = removeTaskFromList day.tasks }
             in
-            { model | days = applyToElementsWhichSatisfy (hasSameDayName dayName) removeTaskFromDay model.days }
+            { model | days = List.Extra.updateIf (hasSameDayName dayName) removeTaskFromDay model.days }
 
         SetComment dayName taskId comment ->
             let
