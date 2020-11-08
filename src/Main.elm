@@ -9,14 +9,17 @@ import List.Extra exposing (updateIf)
 
 
 
---todo: replace all class identifiers with elm style css.
+--TODO: replace all class identifiers with elm style css.
+
 
 type alias TimeInMinutes =
     Int
 
-invalidTimeString: String
+
+invalidTimeString : String
 invalidTimeString =
     "--:--"
+
 
 {-| output is in the format hh:mm, where mm
 can be 00 to 59 and hh can be 00 to 99. if the int cannot
@@ -25,7 +28,6 @@ get converted to this format --:-- is returned.
 minutesToString : TimeInMinutes -> String
 minutesToString timeInMinutes =
     let
-
         minMinutes =
             0
 
@@ -84,20 +86,21 @@ stringToMinutes string =
 
 taskTime : Task -> Maybe TimeInMinutes
 taskTime task =
-     case (task.startTime, task.stopTime) of
-         (Just startTime, Just stopTime) ->
-             Just (stopTime - startTime)
+    case ( task.startTime, task.stopTime ) of
+        ( Just startTime, Just stopTime ) ->
+            Just (stopTime - startTime)
 
-         _ ->
-             Nothing
+        _ ->
+            Nothing
+
 
 dailyWorktime : Day -> Maybe TimeInMinutes
 dailyWorktime day =
     let
-        maybeAdd: Maybe TimeInMinutes -> Maybe TimeInMinutes -> Maybe TimeInMinutes
+        maybeAdd : Maybe TimeInMinutes -> Maybe TimeInMinutes -> Maybe TimeInMinutes
         maybeAdd first second =
-            case (first, second) of
-                (Just firstTime, Just secondTime) ->
+            case ( first, second ) of
+                ( Just firstTime, Just secondTime ) ->
                     Just (firstTime + secondTime)
 
                 _ ->
@@ -114,6 +117,7 @@ type alias TaskId =
 
 type alias Task =
     { taskId : TaskId
+    , project : String
     , comment : String
     , startTime : Maybe TimeInMinutes
     , stopTime : Maybe TimeInMinutes
@@ -123,6 +127,7 @@ type alias Task =
 emptyTask : TaskId -> Task
 emptyTask taskId =
     { taskId = taskId
+    , project = ""
     , comment = ""
     , startTime = Nothing
     , stopTime = Nothing
@@ -134,6 +139,13 @@ viewTask dayName task =
     div [ class "task" ]
         [ div [ class "top_row" ]
             [ input
+                [ class "project"
+                , type_ "text"
+                , value task.project
+                , onInput (SetProject dayName task.taskId)
+                ]
+                []
+            , input
                 [ class "comment"
                 , type_ "text"
                 , value task.comment
@@ -162,7 +174,7 @@ viewTask dayName task =
             , input
                 [ class "stop_time"
                 , type_ "time"
-                ,  case task.stopTime of
+                , case task.stopTime of
                     Just time ->
                         value (minutesToString time)
 
@@ -206,7 +218,8 @@ daynameToString dayName =
         Friday ->
             "friday"
 
-viewDay: Maybe TimeInMinutes -> Day -> Html Msg
+
+viewDay : Maybe TimeInMinutes -> Day -> Html Msg
 viewDay requiredMinutes day =
     div [ class "day" ]
         [ text (daynameToString day.dayName)
@@ -215,7 +228,7 @@ viewDay requiredMinutes day =
             [ case requiredMinutes of
                 Just minutes ->
                     text (minutesToString minutes)
-            
+
                 Nothing ->
                     text invalidTimeString
             ]
@@ -223,6 +236,7 @@ viewDay requiredMinutes day =
         ]
 
 
+workWeek : List Day
 workWeek =
     [ { dayName = Monday
       , tasks = []
@@ -242,6 +256,7 @@ workWeek =
     ]
 
 
+main : Program () Model Msg
 main =
     Browser.sandbox { init = init, update = update, view = view }
 
@@ -258,18 +273,21 @@ init =
 view : Model -> Html Msg
 view model =
     let
-        addAccumulatedDailyWorktimeToList : Day -> List(Maybe TimeInMinutes) -> List(Maybe TimeInMinutes)
+        addAccumulatedDailyWorktimeToList : Day -> List (Maybe TimeInMinutes) -> List (Maybe TimeInMinutes)
         addAccumulatedDailyWorktimeToList day list =
-            case (dailyWorktime day, List.head list) of
-                (Just newTime, Nothing) ->
+            case ( dailyWorktime day, List.head list ) of
+                ( Just newTime, Nothing ) ->
                     Just newTime :: list
-                (Just newTime, Just (Just accumulatedTime)) ->
+
+                ( Just newTime, Just (Just accumulatedTime) ) ->
                     Just (newTime + accumulatedTime) :: list
+
                 _ ->
                     Nothing :: list
-                
-        requiredMinutes : List(Maybe TimeInMinutes)
-        requiredMinutes = List.reverse (List.foldl addAccumulatedDailyWorktimeToList [] model.days)
+
+        requiredMinutes : List (Maybe TimeInMinutes)
+        requiredMinutes =
+            List.reverse (List.foldl addAccumulatedDailyWorktimeToList [] model.days)
     in
     div [ class "week" ] (List.map2 viewDay requiredMinutes model.days)
 
@@ -277,6 +295,7 @@ view model =
 type Msg
     = AddTask DayName
     | RemoveTask DayName TaskId
+    | SetProject DayName TaskId String
     | SetComment DayName TaskId String
     | SetStartTime DayName TaskId String
     | SetStopTime DayName TaskId String
@@ -335,6 +354,14 @@ update msg model =
                     { day | tasks = removeTaskFromList day.tasks }
             in
             { model | days = List.Extra.updateIf (hasSameDayName dayName) removeTaskFromDay model.days }
+
+        SetProject dayName taskId project ->
+            let
+                setProject : Task -> Task
+                setProject task =
+                    { task | project = project }
+            in
+            { model | days = applyToTasksWhichSatisfy (hasSameDayName dayName) (hasSameTaskId taskId) setProject model.days }
 
         SetComment dayName taskId comment ->
             let

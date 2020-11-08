@@ -45,7 +45,7 @@ input:hover {
 
 .task .top_row {
     display: grid;
-    grid-template-columns: auto auto;
+    grid-template-columns: 10% auto min-content;
 }
 
 .task .bottom_row {

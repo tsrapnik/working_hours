@@ -5,10 +5,16 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "request": "launch",
+            "type": "edge",
+            "name": "launch edge",
+            "file": "${workspaceFolder}/index.html"
+        },
+        {
             "type": "firefox",
             "request": "launch",
             "reAttach": true,
-            "name": "launch index.html",
+            "name": "launch firefox",
             "file": "${workspaceFolder}/index.html"
         }
     ]

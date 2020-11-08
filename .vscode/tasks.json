@@ -7,13 +7,21 @@
             "label": "build",
             "type": "shell",
             "command": "elm make src/Main.elm --output=script.js",
-            "problemMatcher": []
+            "problemMatcher": [],
+            "group": {
+              "kind": "build",
+              "isDefault": false
+            }
         },
         {
             "label": "build debug",
             "type": "shell",
             "command": "elm make src/Main.elm --output=script.js --debug",
-            "problemMatcher": []
+            "problemMatcher": [],
+            "group": {
+              "kind": "build",
+              "isDefault": false
+            }
         }
     ]
 }
