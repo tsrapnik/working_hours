@@ -35,22 +35,27 @@ input:hover {
     background-color: rgba(255, 255, 255, 0.2);
 }
 
-.task .close_button {
+.task .top_row .close_button {
     background-color: rgba(0, 0, 0, 0);
 }
 
-.task .close_button:hover {
+.task .top_row .close_button:hover {
     color: rgba(255, 255, 255, 0.3);
+}
+
+.task .top_row .project {
+    width: 95%; /* TODO: this prevents the page from becoming wider than the screen. why does this
+    work and is there a better solution (margin is not really respected now when resizing)? */
 }
 
 .task .top_row {
     display: grid;
-    grid-template-columns: 10% auto min-content;
+    grid-template-columns: 1fr 3fr min-content;
 }
 
 .task .bottom_row {
     display: grid;
-    grid-template-columns: auto auto;
+    grid-template-columns: repeat(2, 1fr);
 }
 
 .task {
@@ -58,7 +63,7 @@ input:hover {
     padding: 2px;
     margin: 4px;
     display: grid;
-    grid-template-rows: auto auto;
+    grid-template-rows: repeat(2, 1fr);
 }
 
 .day {
@@ -75,7 +80,7 @@ input:hover {
 
 .week {
     display: grid;
-    grid-template-columns: auto auto auto auto auto auto auto;
+    grid-template-columns: repeat(5, 1fr);
 }
 
 #menu_window {
