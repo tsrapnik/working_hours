@@ -10,77 +10,86 @@ body {
     background: #374e45;
 }
 
-button {
+.week {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    column-gap: 4px;
+}
+
+.day {
+    color: rgba(255, 255, 255, 0.5);
+    text-align: center;
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-auto-rows: min-content;
+    row-gap: 10px;
+}
+
+.day .required_minutes {
+    background-color: rgba(0, 0, 0, 0.3);
+    padding: 4px 0px;
+}
+
+.day button {
     background-color: rgba(255, 255, 255, 0.4);
     border: none;
     font-size: 15px;
+    padding: 4px 0px;
 }
 
-button:hover {
+.day button:hover {
     background-color: rgba(255, 255, 255, 0.55);
 }
 
-button:active {
+.day button:active {
     background-color: rgba(255, 255, 255, 0.3);
 }
 
-input {
-    color: rgba(255, 255, 255, 0.55);
-    background-color: rgba(0, 0, 0, 0.3);
-    border: none;
-    margin: 2px;
+.task {
+    background-color: rgba(255, 255, 255, 0.1);
+    display: grid;
+    padding: 4px;
+    grid-template-rows: repeat(2, 1fr);
+    row-gap: 4px;
 }
 
-input:hover {
+.task input {
+    color: rgba(255, 255, 255, 0.55);
+    background-color: rgba(0, 0, 0, 0.3);
+    border:  none;
+}
+
+.task .top_row {
+    display: grid;
+    grid-template-columns: 1fr 3fr min-content;
+    column-gap: 4px;
+}
+
+.task .top_row .project {
+    min-width: 30px;
+}
+
+.task .top_row .comment {
+    min-width: 90px;
+}
+
+.task .top_row input:hover {
     background-color: rgba(255, 255, 255, 0.2);
 }
 
 .task .top_row .close_button {
     background-color: rgba(0, 0, 0, 0);
+    padding: 0px 4px;
 }
 
 .task .top_row .close_button:hover {
     color: rgba(255, 255, 255, 0.3);
 }
 
-.task .top_row .project {
-    width: 95%; /* TODO: this prevents the page from becoming wider than the screen. why does this
-    work and is there a better solution (margin is not really respected now when resizing)? */
-}
-
-.task .top_row {
-    display: grid;
-    grid-template-columns: 1fr 3fr min-content;
-}
-
 .task .bottom_row {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-}
-
-.task {
-    background-color: rgba(255, 255, 255, 0.1);
-    padding: 2px;
-    margin: 4px;
-    display: grid;
-    grid-template-rows: repeat(2, 1fr);
-}
-
-.day {
-    color: rgba(255, 255, 255, 0.5);
-    text-align: center;
-}
-
-.day .required_minutes {
-    background-color: rgba(0, 0, 0, 0.3);
-    padding: 2px;
-    margin: 4px;
-    display: grid;
-}
-
-.week {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    column-gap: 4px;
 }
 
 #menu_window {
