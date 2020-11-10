@@ -251,7 +251,7 @@ viewDay requiredMinutes day =
         , div [ class "tasks" ] (List.map (viewTask day.dayName) (List.reverse day.tasks))
         , case requiredMinutes of
             Just minutes ->
-                if minutes >= 0 then
+                if minutes > 0 then
                     time [ class "required_minutes_red" ] [ text (minutesToString minutes) ]
 
                 else
@@ -317,15 +317,22 @@ view model =
 
         addRequiredMinutesToList : Day -> List (Maybe TimeInMinutes) -> List (Maybe TimeInMinutes)
         addRequiredMinutesToList day list =
-            case ( dailyWorktime day, List.head list ) of
-                ( Just workTime, Nothing ) ->
-                    Just (requiredDailyWorkTime - workTime) :: list
+            if List.isEmpty day.tasks then
+                case List.head list of
+                    Nothing ->
+                        Just (0) :: list
+                    Just accumulatedTime ->
+                        accumulatedTime :: list
+            else
+                case ( dailyWorktime day, List.head list ) of
+                    ( Just workTime, Nothing ) ->
+                        Just (requiredDailyWorkTime - workTime) :: list
 
-                ( Just workTime, Just (Just accumulatedTime) ) ->
-                    Just ((requiredDailyWorkTime - workTime) + accumulatedTime) :: list
+                    ( Just workTime, Just (Just accumulatedTime) ) ->
+                        Just ((requiredDailyWorkTime - workTime) + accumulatedTime) :: list
 
-                _ ->
-                    Nothing :: list
+                    _ ->
+                        Nothing :: list
 
         requiredMinutes : List (Maybe TimeInMinutes)
         requiredMinutes =
