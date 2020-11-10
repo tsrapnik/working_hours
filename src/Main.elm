@@ -471,15 +471,33 @@ encodeDay day =
 
 encodeTask : Task -> E.Value
 encodeTask task =
+    let
+        startTime =
+            case task.startTime of
+                Just minutes ->
+                    [ ( "startTime", E.int minutes ) ]
+
+                Nothing ->
+                    []
+
+        stopTime =
+            case task.stopTime of
+                Just minutes ->
+                    [ ( "stopTime", E.int minutes ) ]
+
+                Nothing ->
+                    []
+    in
     E.object
-        [ ( "taskId", E.int task.taskId )
-        , ( "project", E.string task.project )
-        , ( "comment", E.string task.comment )
-        ]
-
-
-
---TODO: encode start and stop time.
+        (List.concat
+            [ [ ( "taskId", E.int task.taskId )
+              , ( "project", E.string task.project )
+              , ( "comment", E.string task.comment )
+              ]
+            , startTime
+            , stopTime
+            ]
+        )
 
 
 decoder : D.Decoder Model
