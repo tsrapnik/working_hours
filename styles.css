@@ -26,7 +26,7 @@ body {
 }
 
 .day .required_minutes_red {
-    color: rgba(255, 0, 0, 0.4);
+    color: rgba(255, 72, 0, 0.4);
     background-color: rgba(0, 0, 0, 0.3);
     padding: 4px 0px;
 }
