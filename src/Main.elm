@@ -122,12 +122,12 @@ type alias Task =
     }
 
 
-emptyTask : TaskId -> Task
-emptyTask taskId =
+emptyTask : TaskId -> Maybe TimeInMinutes -> Task
+emptyTask taskId startTime =
     { taskId = taskId
     , project = ""
     , comment = ""
-    , startTime = Nothing
+    , startTime = startTime
     , stopTime = Nothing
     }
 
@@ -377,18 +377,18 @@ update msg model =
     case msg of
         AddTask dayName ->
             let
-                addTask : Day -> TaskId -> Day
-                addTask day newId =
-                    { day | tasks = emptyTask newId :: day.tasks }
+                addTask : Day -> TaskId -> Maybe TimeInMinutes -> Day
+                addTask day newId startTime =
+                    { day | tasks = (emptyTask newId startTime) :: day.tasks }
 
                 addTaskWithCorrectId : Day -> Day
                 addTaskWithCorrectId day =
                     case List.head day.tasks of
                         Just previousTask ->
-                            addTask day (previousTask.taskId + 1)
+                            addTask day (previousTask.taskId + 1) previousTask.stopTime
 
                         Nothing ->
-                            addTask day 0
+                            addTask day 0 Maybe.Nothing
             in
             ( { model | days = List.Extra.updateIf (hasSameDayName dayName) addTaskWithCorrectId model.days }
             , Cmd.none
