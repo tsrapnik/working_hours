@@ -245,18 +245,20 @@ stringToDayname string =
 
 
 viewDay : Maybe TimeInMinutes -> Day -> Html Msg
-    viewDay requiredMinutes day =
+viewDay requiredMinutes day =
     div [ class "day" ]
         [ text (daynameToString day.dayName)
         , div [ class "tasks" ] (List.map (viewTask day.dayName) (List.reverse day.tasks))
-        , time [ class "required_minutes" ]
-            [ case requiredMinutes of
-                Just minutes ->
-                    text (minutesToString minutes)
+        , case requiredMinutes of
+            Just minutes ->
+                if minutes >= 0 then
+                    time [ class "required_minutes_red" ] [ text (minutesToString minutes) ]
 
-                Nothing ->
-                    text invalidTimeString
-            ]
+                else
+                    time [ class "required_minutes_green" ] [ text (minutesToString -minutes) ]
+
+            Nothing ->
+                time [ class "required_minutes_white" ] [ text invalidTimeString ]
         , button [ onClick (AddTask day.dayName) ] [ text "add task" ]
         ]
 
@@ -310,21 +312,24 @@ init flags =
 view : Model -> Html Msg
 view model =
     let
-        addAccumulatedDailyWorktimeToList : Day -> List (Maybe TimeInMinutes) -> List (Maybe TimeInMinutes)
-        addAccumulatedDailyWorktimeToList day list =
-            case ( dailyWorktime day, List.head list ) of
-                ( Just newTime, Nothing ) ->
-                    Just newTime :: list
+        requiredDailyWorkTime =
+            8 * 60
 
-                ( Just newTime, Just (Just accumulatedTime) ) ->
-                    Just (newTime + accumulatedTime) :: list
+        addRequiredMinutesToList : Day -> List (Maybe TimeInMinutes) -> List (Maybe TimeInMinutes)
+        addRequiredMinutesToList day list =
+            case ( dailyWorktime day, List.head list ) of
+                ( Just workTime, Nothing ) ->
+                    Just (requiredDailyWorkTime - workTime) :: list
+
+                ( Just workTime, Just (Just accumulatedTime) ) ->
+                    Just ((requiredDailyWorkTime - workTime) + accumulatedTime) :: list
 
                 _ ->
                     Nothing :: list
 
         requiredMinutes : List (Maybe TimeInMinutes)
         requiredMinutes =
-            List.reverse (List.foldl addAccumulatedDailyWorktimeToList [] model.days)
+            List.reverse (List.foldl addRequiredMinutesToList [] model.days)
     in
     div [ class "week" ] (List.map2 viewDay requiredMinutes model.days)
 

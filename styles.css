@@ -25,7 +25,19 @@ body {
     row-gap: 10px;
 }
 
-.day .required_minutes {
+.day .required_minutes_red {
+    color: rgba(255, 0, 0, 0.4);
+    background-color: rgba(0, 0, 0, 0.3);
+    padding: 4px 0px;
+}
+
+.day .required_minutes_green {
+    color: rgba(0, 255, 0, 0.2);
+    background-color: rgba(0, 0, 0, 0.3);
+    padding: 4px 0px;
+}
+
+.day .required_minutes_white {
     background-color: rgba(0, 0, 0, 0.3);
     padding: 4px 0px;
 }
