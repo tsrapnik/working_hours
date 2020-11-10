@@ -10,10 +10,6 @@ import Json.Encode as E
 import List.Extra exposing (updateIf)
 
 
-
---TODO: replace all class identifiers with elm style css.
-
-
 type alias TimeInMinutes =
     Int
 
@@ -249,7 +245,7 @@ stringToDayname string =
 
 
 viewDay : Maybe TimeInMinutes -> Day -> Html Msg
-viewDay requiredMinutes day =
+    viewDay requiredMinutes day =
     div [ class "day" ]
         [ text (daynameToString day.dayName)
         , div [ class "tasks" ] (List.map (viewTask day.dayName) (List.reverse day.tasks))
