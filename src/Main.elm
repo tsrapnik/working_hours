@@ -1,10 +1,12 @@
-module Main exposing (..)
+port module Main exposing (..)
 
 import Browser
 import Html exposing (Html, button, div, input, text, time)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 import Html.Keyed exposing (node)
+import Json.Decode as D exposing (Decoder, field, int, maybe, string)
+import Json.Encode as E
 import List.Extra exposing (updateIf)
 
 
@@ -201,6 +203,7 @@ type DayName
     | Friday
 
 
+daynameToString : DayName -> String
 daynameToString dayName =
     case dayName of
         Monday ->
@@ -217,6 +220,32 @@ daynameToString dayName =
 
         Friday ->
             "friday"
+
+
+stringToDayname : String -> DayName
+stringToDayname string =
+    case string of
+        "monday" ->
+            Monday
+
+        "tuesday" ->
+            Tuesday
+
+        "wednesday" ->
+            Wednesday
+
+        "thursday" ->
+            Thursday
+
+        "friday" ->
+            Friday
+
+        _ ->
+            Monday
+
+
+
+--default to monday.
 
 
 viewDay : Maybe TimeInMinutes -> Day -> Html Msg
@@ -256,18 +285,30 @@ workWeek =
     ]
 
 
-main : Program () Model Msg
+main : Program E.Value Model Msg
 main =
-    Browser.sandbox { init = init, update = update, view = view }
+    Browser.element
+        { init = init
+        , view = view
+        , update = updateWithStorage
+        , subscriptions = \_ -> Sub.none
+        }
 
 
 type alias Model =
     { days : List Day }
 
 
-init : Model
-init =
-    { days = workWeek }
+init : E.Value -> ( Model, Cmd Msg )
+init flags =
+    ( case D.decodeValue decoder flags of
+        Ok model ->
+            model
+
+        Err _ ->
+            { days = workWeek }
+    , Cmd.none
+    )
 
 
 view : Model -> Html Msg
@@ -301,7 +342,7 @@ type Msg
     | SetStopTime DayName TaskId String
 
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     let
         hasSameDayName : DayName -> Day -> Bool
@@ -341,7 +382,9 @@ update msg model =
                         Nothing ->
                             addTask day 0
             in
-            { model | days = List.Extra.updateIf (hasSameDayName dayName) addTaskWithCorrectId model.days }
+            ( { model | days = List.Extra.updateIf (hasSameDayName dayName) addTaskWithCorrectId model.days }
+            , Cmd.none
+            )
 
         RemoveTask dayName taskId ->
             let
@@ -353,7 +396,9 @@ update msg model =
                 removeTaskFromDay day =
                     { day | tasks = removeTaskFromList day.tasks }
             in
-            { model | days = List.Extra.updateIf (hasSameDayName dayName) removeTaskFromDay model.days }
+            ( { model | days = List.Extra.updateIf (hasSameDayName dayName) removeTaskFromDay model.days }
+            , Cmd.none
+            )
 
         SetProject dayName taskId project ->
             let
@@ -361,7 +406,9 @@ update msg model =
                 setProject task =
                     { task | project = project }
             in
-            { model | days = applyToTasksWhichSatisfy (hasSameDayName dayName) (hasSameTaskId taskId) setProject model.days }
+            ( { model | days = applyToTasksWhichSatisfy (hasSameDayName dayName) (hasSameTaskId taskId) setProject model.days }
+            , Cmd.none
+            )
 
         SetComment dayName taskId comment ->
             let
@@ -369,7 +416,9 @@ update msg model =
                 setComment task =
                     { task | comment = comment }
             in
-            { model | days = applyToTasksWhichSatisfy (hasSameDayName dayName) (hasSameTaskId taskId) setComment model.days }
+            ( { model | days = applyToTasksWhichSatisfy (hasSameDayName dayName) (hasSameTaskId taskId) setComment model.days }
+            , Cmd.none
+            )
 
         SetStartTime dayName taskId startTime ->
             let
@@ -377,7 +426,9 @@ update msg model =
                 setStartTime task =
                     { task | startTime = stringToMinutes startTime }
             in
-            { model | days = applyToTasksWhichSatisfy (hasSameDayName dayName) (hasSameTaskId taskId) setStartTime model.days }
+            ( { model | days = applyToTasksWhichSatisfy (hasSameDayName dayName) (hasSameTaskId taskId) setStartTime model.days }
+            , Cmd.none
+            )
 
         SetStopTime dayName taskId stopTime ->
             let
@@ -385,4 +436,70 @@ update msg model =
                 setStopTime task =
                     { task | stopTime = stringToMinutes stopTime }
             in
-            { model | days = applyToTasksWhichSatisfy (hasSameDayName dayName) (hasSameTaskId taskId) setStopTime model.days }
+            ( { model | days = applyToTasksWhichSatisfy (hasSameDayName dayName) (hasSameTaskId taskId) setStopTime model.days }
+            , Cmd.none
+            )
+
+
+port setStorage : E.Value -> Cmd msg
+
+
+updateWithStorage : Msg -> Model -> ( Model, Cmd Msg )
+updateWithStorage msg oldModel =
+    let
+        ( newModel, cmds ) =
+            update msg oldModel
+    in
+    ( newModel
+    , Cmd.batch [ setStorage (encode newModel), cmds ]
+    )
+
+
+encode : Model -> E.Value
+encode model =
+    E.object
+        [ ( "days", E.list encodeDay model.days ) ]
+
+
+encodeDay : Day -> E.Value
+encodeDay day =
+    E.object
+        [ ( "dayName", E.string (daynameToString day.dayName) )
+        , ( "tasks", E.list encodeTask day.tasks )
+        ]
+
+
+encodeTask : Task -> E.Value
+encodeTask task =
+    E.object
+        [ ( "taskId", E.int task.taskId )
+        , ( "project", E.string task.project )
+        , ( "comment", E.string task.comment )
+        ]
+
+
+
+--TODO: encode start and stop time.
+
+
+decoder : D.Decoder Model
+decoder =
+    D.map Model
+        (field "days" (D.list dayDecoder))
+
+
+dayDecoder : D.Decoder Day
+dayDecoder =
+    D.map2 Day
+        (D.map stringToDayname (field "dayName" string))
+        (field "tasks" (D.list taskDecoder))
+
+
+taskDecoder : D.Decoder Task
+taskDecoder =
+    D.map5 Task
+        (field "taskId" int)
+        (field "project" string)
+        (field "comment" string)
+        (maybe (field "startTime" int))
+        (maybe (field "stopTime" int))
