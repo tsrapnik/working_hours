@@ -1,13 +1,13 @@
 port module Main exposing (..)
 
-import Browser
+import Browser exposing (element)
 import Html exposing (Html, button, div, input, text, time)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 import Html.Keyed exposing (node)
 import Json.Decode as D exposing (Decoder, field, int, maybe, string)
 import Json.Encode as E
-import List.Extra exposing (updateIf)
+import List.Extra exposing (splitWhen, uncons, updateIf)
 
 
 type alias TimeInMinutes =
@@ -320,9 +320,11 @@ view model =
             if List.isEmpty day.tasks then
                 case List.head list of
                     Nothing ->
-                        Just (0) :: list
+                        Just 0 :: list
+
                     Just accumulatedTime ->
                         accumulatedTime :: list
+
             else
                 case ( dailyWorktime day, List.head list ) of
                     ( Just workTime, Nothing ) ->
@@ -361,8 +363,8 @@ update msg model =
         hasSameTaskId taskId task =
             taskId == task.taskId
 
-        applyToTasksWhichSatisfy : (Day -> Bool) -> (Task -> Bool) -> (Task -> Task) -> List Day -> List Day
-        applyToTasksWhichSatisfy dayCondition taskCondition function days =
+        applyWhen : (Day -> Bool) -> (Task -> Bool) -> (Task -> Task) -> List Day -> List Day
+        applyWhen dayCondition taskCondition function days =
             let
                 tasksFunction : List Task -> List Task
                 tasksFunction tasks =
@@ -379,7 +381,7 @@ update msg model =
             let
                 addTask : Day -> TaskId -> Maybe TimeInMinutes -> Day
                 addTask day newId startTime =
-                    { day | tasks = (emptyTask newId startTime) :: day.tasks }
+                    { day | tasks = emptyTask newId startTime :: day.tasks }
 
                 addTaskWithCorrectId : Day -> Day
                 addTaskWithCorrectId day =
@@ -398,7 +400,7 @@ update msg model =
             let
                 removeTaskFromList : List Task -> List Task
                 removeTaskFromList tasks =
-                    Tuple.second (List.partition (\task -> task.taskId == taskId) tasks)
+                    List.filter (\task -> task.taskId /= taskId) tasks
 
                 removeTaskFromDay : Day -> Day
                 removeTaskFromDay day =
@@ -414,7 +416,7 @@ update msg model =
                 setProject task =
                     { task | project = project }
             in
-            ( { model | days = applyToTasksWhichSatisfy (hasSameDayName dayName) (hasSameTaskId taskId) setProject model.days }
+            ( { model | days = applyWhen (hasSameDayName dayName) (hasSameTaskId taskId) setProject model.days }
             , Cmd.none
             )
 
@@ -424,7 +426,7 @@ update msg model =
                 setComment task =
                     { task | comment = comment }
             in
-            ( { model | days = applyToTasksWhichSatisfy (hasSameDayName dayName) (hasSameTaskId taskId) setComment model.days }
+            ( { model | days = applyWhen (hasSameDayName dayName) (hasSameTaskId taskId) setComment model.days }
             , Cmd.none
             )
 
@@ -433,8 +435,16 @@ update msg model =
                 setStartTime : Task -> Task
                 setStartTime task =
                     { task | startTime = stringToMinutes startTime }
+
+                updateTask : Task -> List Task
+                updateTask task =
+                    adaptToLunch (setStartTime task)
+
+                updateDay : Day -> Day
+                updateDay day =
+                    {day | tasks = replaceElements (hasSameTaskId taskId) updateTask day.tasks}
             in
-            ( { model | days = applyToTasksWhichSatisfy (hasSameDayName dayName) (hasSameTaskId taskId) setStartTime model.days }
+            ( { model | days = List.Extra.updateIf (hasSameDayName dayName) updateDay model.days }
             , Cmd.none
             )
 
@@ -443,10 +453,96 @@ update msg model =
                 setStopTime : Task -> Task
                 setStopTime task =
                     { task | stopTime = stringToMinutes stopTime }
+
+                updateTask : Task -> List Task
+                updateTask task =
+                    adaptToLunch (setStopTime task)
+
+                updateDay : Day -> Day
+                updateDay day =
+                    {day | tasks = replaceElements (hasSameTaskId taskId) updateTask day.tasks}
             in
-            ( { model | days = applyToTasksWhichSatisfy (hasSameDayName dayName) (hasSameTaskId taskId) setStopTime model.days }
+            ( { model | days = applyWhen (hasSameDayName dayName) (hasSameTaskId taskId) setStopTime model.days }
             , Cmd.none
             )
+
+
+{-| take a list and replace all elements for which given predicate is true with
+zero or more elements defined by a replacement function that takes that element.
+-}
+replaceElements : (a -> Bool) -> (a -> List a) -> List a -> List a
+replaceElements condition replacement list =
+    case splitWhen condition list of
+        Just ( left, elementAndRight ) ->
+            case uncons elementAndRight of
+                Just ( element, right ) ->
+                    List.concat [ left, replacement element, right ]
+
+                _ ->
+                    list
+
+        _ ->
+            list
+
+
+adaptToLunch : Task -> List Task
+adaptToLunch task =
+    let
+        startLunch =
+            12 * 60 + 30
+
+        endLunch =
+            13 * 60
+    in
+    case ( task.startTime, task.stopTime ) of
+        ( Just startTime, Just stopTime ) ->
+            let
+                startTimeBeforeLunch =
+                    startTime < startLunch
+
+                startTimeInLunch =
+                    (startTime >= startLunch) && (startTime < endLunch)
+
+                stopTimeInLunch =
+                    (stopTime >= startLunch) && (stopTime < endLunch)
+
+                stopTimeAfterLunch =
+                    stopTime >= endLunch
+
+                endsInLunch =
+                    startTimeBeforeLunch && stopTimeInLunch
+
+                inLunch =
+                    startTimeInLunch && stopTimeInLunch
+
+                startsInLunch =
+                    startTimeInLunch && stopTimeAfterLunch
+
+                envelopsLunch =
+                    startTimeBeforeLunch && stopTimeAfterLunch
+            in
+            if endsInLunch then
+                --crop stop time.
+                [ { task | stopTime = Just startLunch } ]
+
+            else if startsInLunch then
+                --crop start time.
+                [ { task | startTime = Just endLunch } ]
+
+            else if inLunch then
+                --remove task.
+                []
+
+            else if envelopsLunch then
+                --split task in part before and after lunch.
+                [ { task | startTime = Just startLunch }, { task | stopTime = Just startLunch } ]
+
+            else
+                --other cases we do not need to change anything.
+                [ task ]
+
+        _ ->
+            [ task ]
 
 
 port setStorage : E.Value -> Cmd msg
