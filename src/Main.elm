@@ -1,5 +1,7 @@
 port module Main exposing (..)
 
+import Array exposing (Array)
+import Array.Extra
 import Browser exposing (element)
 import Html exposing (Html, button, div, input, text, time)
 import Html.Attributes exposing (..)
@@ -105,54 +107,52 @@ dailyWorktime day =
                     Nothing
     in
     day.tasks
-        |> List.map taskTime
-        |> List.foldl maybeAdd (Just 0)
+        |> Array.map taskTime
+        |> Array.foldl maybeAdd (Just 0)
 
 
-type alias TaskId =
+type alias TaskIndex =
     Int
 
 
 type alias Task =
-    { taskId : TaskId
-    , project : String
+    { project : String
     , comment : String
     , startTime : Maybe TimeInMinutes
     , stopTime : Maybe TimeInMinutes
     }
 
 
-emptyTask : TaskId -> Maybe TimeInMinutes -> Task
-emptyTask taskId startTime =
-    { taskId = taskId
-    , project = ""
+emptyTask : Maybe TimeInMinutes -> Task
+emptyTask startTime =
+    { project = ""
     , comment = ""
     , startTime = startTime
     , stopTime = Nothing
     }
 
 
-viewTask : DayName -> Task -> Html Msg
-viewTask dayName task =
+viewTask : DayName -> TaskIndex -> Task -> Html Msg
+viewTask dayName taskIndex task =
     div [ class "task" ]
         [ div [ class "top_row" ]
             [ input
                 [ class "project"
                 , type_ "text"
                 , value task.project
-                , onInput (SetProject dayName task.taskId)
+                , onInput (SetProject dayName taskIndex)
                 ]
                 []
             , input
                 [ class "comment"
                 , type_ "text"
                 , value task.comment
-                , onInput (SetComment dayName task.taskId)
+                , onInput (SetComment dayName taskIndex)
                 ]
                 []
             , button
                 [ class "close_button"
-                , onClick (RemoveTask dayName task.taskId)
+                , onClick (RemoveTask dayName taskIndex)
                 ]
                 [ text "x" ]
             ]
@@ -166,7 +166,7 @@ viewTask dayName task =
 
                     Nothing ->
                         value invalidTimeString
-                , onInput (SetStartTime dayName task.taskId)
+                , onInput (SetStartTime dayName taskIndex)
                 ]
                 []
             , input
@@ -178,7 +178,7 @@ viewTask dayName task =
 
                     Nothing ->
                         value invalidTimeString
-                , onInput (SetStopTime dayName task.taskId)
+                , onInput (SetStopTime dayName taskIndex)
                 ]
                 []
             ]
@@ -187,7 +187,7 @@ viewTask dayName task =
 
 type alias Day =
     { dayName : DayName
-    , tasks : List Task
+    , tasks : Array Task
     }
 
 
@@ -248,7 +248,7 @@ viewDay : Maybe TimeInMinutes -> Day -> Html Msg
 viewDay requiredMinutes day =
     div [ class "day" ]
         [ text (daynameToString day.dayName)
-        , div [ class "tasks" ] (List.map (viewTask day.dayName) (List.reverse day.tasks))
+        , div [ class "tasks" ] (Array.toList (Array.indexedMap (\taskIndex task -> viewTask day.dayName taskIndex task) day.tasks))
         , case requiredMinutes of
             Just minutes ->
                 if minutes > 0 then
@@ -266,19 +266,19 @@ viewDay requiredMinutes day =
 workWeek : List Day
 workWeek =
     [ { dayName = Monday
-      , tasks = []
+      , tasks = Array.empty
       }
     , { dayName = Tuesday
-      , tasks = []
+      , tasks = Array.empty
       }
     , { dayName = Wednesday
-      , tasks = []
+      , tasks = Array.empty
       }
     , { dayName = Thursday
-      , tasks = []
+      , tasks = Array.empty
       }
     , { dayName = Friday
-      , tasks = []
+      , tasks = Array.empty
       }
     ]
 
@@ -317,7 +317,7 @@ view model =
 
         addRequiredMinutesToList : Day -> List (Maybe TimeInMinutes) -> List (Maybe TimeInMinutes)
         addRequiredMinutesToList day list =
-            if List.isEmpty day.tasks then
+            if Array.isEmpty day.tasks then
                 case List.head list of
                     Nothing ->
                         Just 0 :: list
@@ -345,11 +345,11 @@ view model =
 
 type Msg
     = AddTask DayName
-    | RemoveTask DayName TaskId
-    | SetProject DayName TaskId String
-    | SetComment DayName TaskId String
-    | SetStartTime DayName TaskId String
-    | SetStopTime DayName TaskId String
+    | RemoveTask DayName TaskIndex
+    | SetProject DayName TaskIndex String
+    | SetComment DayName TaskIndex String
+    | SetStartTime DayName TaskIndex String
+    | SetStopTime DayName TaskIndex String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -358,134 +358,126 @@ update msg model =
         hasSameDayName : DayName -> Day -> Bool
         hasSameDayName dayName day =
             dayName == day.dayName
-
-        hasSameTaskId : TaskId -> Task -> Bool
-        hasSameTaskId taskId task =
-            taskId == task.taskId
-
-        applyWhen : (Day -> Bool) -> (Task -> Bool) -> (Task -> Task) -> List Day -> List Day
-        applyWhen dayCondition taskCondition function days =
-            let
-                tasksFunction : List Task -> List Task
-                tasksFunction tasks =
-                    List.Extra.updateIf taskCondition function tasks
-
-                dayFunction : Day -> Day
-                dayFunction day =
-                    { day | tasks = tasksFunction day.tasks }
-            in
-            List.Extra.updateIf dayCondition dayFunction days
     in
     case msg of
         AddTask dayName ->
             let
-                addTask : Day -> TaskId -> Maybe TimeInMinutes -> Day
-                addTask day newId startTime =
-                    { day | tasks = emptyTask newId startTime :: day.tasks }
-
-                addTaskWithCorrectId : Day -> Day
-                addTaskWithCorrectId day =
-                    case List.head day.tasks of
-                        Just previousTask ->
-                            addTask day (previousTask.taskId + 1) previousTask.stopTime
-
-                        Nothing ->
-                            addTask day 0 Maybe.Nothing
-            in
-            ( { model | days = List.Extra.updateIf (hasSameDayName dayName) addTaskWithCorrectId model.days }
-            , Cmd.none
-            )
-
-        RemoveTask dayName taskId ->
-            let
-                removeTaskFromList : List Task -> List Task
-                removeTaskFromList tasks =
-                    List.filter (\task -> task.taskId /= taskId) tasks
-
-                removeTaskFromDay : Day -> Day
-                removeTaskFromDay day =
-                    { day | tasks = removeTaskFromList day.tasks }
-            in
-            ( { model | days = List.Extra.updateIf (hasSameDayName dayName) removeTaskFromDay model.days }
-            , Cmd.none
-            )
-
-        SetProject dayName taskId project ->
-            let
-                setProject : Task -> Task
-                setProject task =
-                    { task | project = project }
-            in
-            ( { model | days = applyWhen (hasSameDayName dayName) (hasSameTaskId taskId) setProject model.days }
-            , Cmd.none
-            )
-
-        SetComment dayName taskId comment ->
-            let
-                setComment : Task -> Task
-                setComment task =
-                    { task | comment = comment }
-            in
-            ( { model | days = applyWhen (hasSameDayName dayName) (hasSameTaskId taskId) setComment model.days }
-            , Cmd.none
-            )
-
-        SetStartTime dayName taskId startTime ->
-            let
-                setStartTime : Task -> Task
-                setStartTime task =
-                    { task | startTime = stringToMinutes startTime }
-
-                updateTask : Task -> List Task
-                updateTask task =
-                    adaptToLunch (setStartTime task)
+                addTask : Day -> Maybe TimeInMinutes -> Day
+                addTask day startTime =
+                    { day | tasks = Array.push (emptyTask startTime) day.tasks }
 
                 updateDay : Day -> Day
                 updateDay day =
-                    {day | tasks = replaceElements (hasSameTaskId taskId) updateTask day.tasks}
+                    case Array.get (Array.length day.tasks - 1) day.tasks of
+                        Just previousTask ->
+                            addTask day previousTask.stopTime
+
+                        Nothing ->
+                            addTask day Maybe.Nothing
             in
             ( { model | days = List.Extra.updateIf (hasSameDayName dayName) updateDay model.days }
             , Cmd.none
             )
 
-        SetStopTime dayName taskId stopTime ->
+        RemoveTask dayName taskIndex ->
+            let
+                removeTask : Day -> Day
+                removeTask day =
+                    { day | tasks = Array.Extra.removeAt taskIndex day.tasks }
+            in
+            ( { model | days = List.Extra.updateIf (hasSameDayName dayName) removeTask model.days }
+            , Cmd.none
+            )
+
+        SetProject dayName taskIndex project ->
+            let
+                setProject : Task -> Task
+                setProject task =
+                    { task | project = project }
+
+                updateDay : Day -> Day
+                updateDay day =
+                    { day | tasks = Array.Extra.update taskIndex setProject day.tasks }
+            in
+            ( { model | days = List.Extra.updateIf (hasSameDayName dayName) updateDay model.days }
+            , Cmd.none
+            )
+
+        SetComment dayName taskIndex comment ->
+            let
+                setComment : Task -> Task
+                setComment task =
+                    { task | comment = comment }
+
+                updateDay : Day -> Day
+                updateDay day =
+                    { day | tasks = Array.Extra.update taskIndex setComment day.tasks }
+            in
+            ( { model | days = List.Extra.updateIf (hasSameDayName dayName) updateDay model.days }
+            , Cmd.none
+            )
+
+        SetStartTime dayName taskIndex startTime ->
+            let
+                setStartTime : Task -> Task
+                setStartTime task =
+                    { task | startTime = stringToMinutes startTime }
+
+                updateTask : Task -> Array Task
+                updateTask task =
+                    adaptToLunch (setStartTime task)
+
+                updateDay : Day -> Day
+                updateDay day =
+                    { day | tasks = replaceAt taskIndex updateTask day.tasks }
+            in
+            ( { model | days = List.Extra.updateIf (hasSameDayName dayName) updateDay model.days }
+            , Cmd.none
+            )
+
+        SetStopTime dayName taskIndex stopTime ->
             let
                 setStopTime : Task -> Task
                 setStopTime task =
                     { task | stopTime = stringToMinutes stopTime }
 
-                updateTask : Task -> List Task
+                updateTask : Task -> Array Task
                 updateTask task =
                     adaptToLunch (setStopTime task)
 
                 updateDay : Day -> Day
                 updateDay day =
-                    {day | tasks = replaceElements (hasSameTaskId taskId) updateTask day.tasks}
+                    { day | tasks = replaceAt taskIndex updateTask day.tasks }
             in
-            ( { model | days = applyWhen (hasSameDayName dayName) (hasSameTaskId taskId) setStopTime model.days }
+            ( { model | days = List.Extra.updateIf (hasSameDayName dayName) updateDay model.days }
             , Cmd.none
             )
 
 
-{-| take a list and replace all elements for which given predicate is true with
-zero or more elements defined by a replacement function that takes that element.
+{-| take an array and replace element at given index with zero or more elements defined by a
+replacement function that takes that element as input.
 -}
-replaceElements : (a -> Bool) -> (a -> List a) -> List a -> List a
-replaceElements condition replacement list =
-    case splitWhen condition list of
-        Just ( left, elementAndRight ) ->
-            case uncons elementAndRight of
-                Just ( element, right ) ->
-                    List.concat [ left, replacement element, right ]
+replaceAt : Int -> (a -> Array a) -> Array a -> Array a
+replaceAt index replacement array =
+    let
+        left =
+            Array.slice 0 index array
 
-                _ ->
-                    list
+        right =
+            Array.slice (index + 1) (Array.length array) array
 
-        _ ->
-            list
+        maybeElement =
+            Array.get index array
+    in
+    case maybeElement of
+        Just element ->
+            Array.append left (Array.append (replacement element) right)
+
+        Nothing ->
+            array
 
 
-adaptToLunch : Task -> List Task
+adaptToLunch : Task -> Array Task
 adaptToLunch task =
     let
         startLunch =
@@ -523,26 +515,26 @@ adaptToLunch task =
             in
             if endsInLunch then
                 --crop stop time.
-                [ { task | stopTime = Just startLunch } ]
+                Array.fromList [ { task | stopTime = Just startLunch } ]
 
             else if startsInLunch then
                 --crop start time.
-                [ { task | startTime = Just endLunch } ]
+                Array.fromList [ { task | startTime = Just endLunch } ]
 
             else if inLunch then
                 --remove task.
-                []
+                Array.empty
 
             else if envelopsLunch then
                 --split task in part before and after lunch.
-                [ { task | startTime = Just startLunch }, { task | stopTime = Just startLunch } ]
+                Array.fromList [ { task | stopTime = Just startLunch }, { task | startTime = Just startLunch } ]
 
             else
                 --other cases we do not need to change anything.
-                [ task ]
+                Array.fromList [ task ]
 
         _ ->
-            [ task ]
+            Array.fromList [ task ]
 
 
 port setStorage : E.Value -> Cmd msg
@@ -569,7 +561,7 @@ encodeDay : Day -> E.Value
 encodeDay day =
     E.object
         [ ( "dayName", E.string (daynameToString day.dayName) )
-        , ( "tasks", E.list encodeTask day.tasks )
+        , ( "tasks", E.array encodeTask day.tasks )
         ]
 
 
@@ -594,8 +586,7 @@ encodeTask task =
     in
     E.object
         (List.concat
-            [ [ ( "taskId", E.int task.taskId )
-              , ( "project", E.string task.project )
+            [ [ ( "project", E.string task.project )
               , ( "comment", E.string task.comment )
               ]
             , startTime
@@ -614,13 +605,12 @@ dayDecoder : D.Decoder Day
 dayDecoder =
     D.map2 Day
         (D.map stringToDayname (field "dayName" string))
-        (field "tasks" (D.list taskDecoder))
+        (field "tasks" (D.array taskDecoder))
 
 
 taskDecoder : D.Decoder Task
 taskDecoder =
-    D.map5 Task
-        (field "taskId" int)
+    D.map4 Task
         (field "project" string)
         (field "comment" string)
         (maybe (field "startTime" int))
