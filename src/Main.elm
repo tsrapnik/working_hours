@@ -11,6 +11,8 @@ import Json.Decode as D exposing (Decoder, field, int, maybe, string)
 import Json.Encode as E
 import List.Extra exposing (splitWhen, uncons, updateIf)
 
+--TODO: days to array, expose less in header, save and load.
+
 
 type alias TimeInMinutes =
     Int
