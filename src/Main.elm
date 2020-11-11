@@ -493,13 +493,13 @@ adaptToLunch task =
                     startTime < startLunch
 
                 startTimeInLunch =
-                    (startTime >= startLunch) && (startTime < endLunch)
+                    (startTime > startLunch) && (startTime <= endLunch)
 
                 stopTimeInLunch =
-                    (stopTime >= startLunch) && (stopTime < endLunch)
+                    (stopTime > startLunch) && (stopTime <= endLunch)
 
                 stopTimeAfterLunch =
-                    stopTime >= endLunch
+                    stopTime > endLunch
 
                 endsInLunch =
                     startTimeBeforeLunch && stopTimeInLunch
@@ -527,7 +527,7 @@ adaptToLunch task =
 
             else if envelopsLunch then
                 --split task in part before and after lunch.
-                Array.fromList [ { task | stopTime = Just startLunch }, { task | startTime = Just startLunch } ]
+                Array.fromList [ { task | stopTime = Just startLunch }, { task | startTime = Just endLunch } ]
 
             else
                 --other cases we do not need to change anything.
