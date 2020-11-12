@@ -90,7 +90,10 @@ taskTime : Task -> Maybe TimeInMinutes
 taskTime task =
     case ( task.startTime, task.stopTime ) of
         ( Just startTime, Just stopTime ) ->
-            Just (stopTime - startTime)
+            if (stopTime - startTime) < 0 then
+                Nothing
+            else
+                Just (stopTime - startTime)
 
         _ ->
             Nothing
