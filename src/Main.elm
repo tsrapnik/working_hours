@@ -192,65 +192,36 @@ viewTask dayIndex taskIndex task =
 
 
 type alias Day =
-    { dayName : DayName
-    , tasks : Array Task
+    { tasks : Array Task
     }
 
 
-type DayName
-    = Monday
-    | Tuesday
-    | Wednesday
-    | Thursday
-    | Friday
-
-
-daynameToString : DayName -> String
-daynameToString dayName =
-    case dayName of
-        Monday ->
+dayIndexToString : DayIndex -> String
+dayIndexToString dayIndex =
+    case dayIndex of
+        0 ->
             "monday"
 
-        Tuesday ->
+        1 ->
             "tuesday"
 
-        Wednesday ->
+        2 ->
             "wednesday"
 
-        Thursday ->
+        3 ->
             "thursday"
 
-        Friday ->
+        4 ->
             "friday"
 
-
-stringToDayname : String -> DayName
-stringToDayname string =
-    case string of
-        "monday" ->
-            Monday
-
-        "tuesday" ->
-            Tuesday
-
-        "wednesday" ->
-            Wednesday
-
-        "thursday" ->
-            Thursday
-
-        "friday" ->
-            Friday
-
-        --default to monday.
         _ ->
-            Monday
+            "unknown day"
 
 
 viewDay : Maybe TimeInMinutes -> DayIndex -> Day -> Html Msg
 viewDay requiredMinutes dayIndex day =
     div [ class "day" ]
-        [ text (daynameToString day.dayName)
+        [ text (dayIndexToString dayIndex)
         , div [ class "tasks" ] (Array.toList (Array.indexedMap (\taskIndex task -> viewTask dayIndex taskIndex task) day.tasks))
         , case requiredMinutes of
             Just minutes ->
@@ -263,27 +234,6 @@ viewDay requiredMinutes dayIndex day =
             Nothing ->
                 time [ class "required_minutes_white" ] [ text invalidTimeString ]
         , button [ onClick (AddTask dayIndex) ] [ text "add task" ]
-        ]
-
-
-workWeek : Array Day
-workWeek =
-    Array.fromList
-        [ { dayName = Monday
-          , tasks = Array.empty
-          }
-        , { dayName = Tuesday
-          , tasks = Array.empty
-          }
-        , { dayName = Wednesday
-          , tasks = Array.empty
-          }
-        , { dayName = Thursday
-          , tasks = Array.empty
-          }
-        , { dayName = Friday
-          , tasks = Array.empty
-          }
         ]
 
 
@@ -308,7 +258,7 @@ init flags =
             model
 
         Err _ ->
-            { days = workWeek }
+            { days = Array.repeat 5 { tasks = Array.empty } }
     , Cmd.none
     )
 
@@ -570,8 +520,7 @@ encode model =
 encodeDay : Day -> Encode.Value
 encodeDay day =
     Encode.object
-        [ ( "dayName", Encode.string (daynameToString day.dayName) )
-        , ( "tasks", Encode.array encodeTask day.tasks )
+        [ ( "tasks", Encode.array encodeTask day.tasks )
         ]
 
 
@@ -613,8 +562,7 @@ decoder =
 
 dayDecoder : Decode.Decoder Day
 dayDecoder =
-    Decode.map2 Day
-        (Decode.map stringToDayname (Decode.field "dayName" Decode.string))
+    Decode.map Day
         (Decode.field "tasks" (Decode.array taskDecoder))
 
 
