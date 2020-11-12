@@ -8,7 +8,6 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 import Json.Decode as Decode
 import Json.Encode as Encode
-import List.Extra
 
 
 
@@ -114,6 +113,10 @@ dailyWorktime day =
         |> Array.foldl maybeAdd (Just 0)
 
 
+type alias DayIndex =
+    Int
+
+
 type alias TaskIndex =
     Int
 
@@ -135,27 +138,27 @@ emptyTask startTime =
     }
 
 
-viewTask : DayName -> TaskIndex -> Task -> Html Msg
-viewTask dayName taskIndex task =
+viewTask : DayIndex -> TaskIndex -> Task -> Html Msg
+viewTask dayIndex taskIndex task =
     div [ class "task" ]
         [ div [ class "top_row" ]
             [ input
                 [ class "project"
                 , type_ "text"
                 , value task.project
-                , onInput (SetProject dayName taskIndex)
+                , onInput (SetProject dayIndex taskIndex)
                 ]
                 []
             , input
                 [ class "comment"
                 , type_ "text"
                 , value task.comment
-                , onInput (SetComment dayName taskIndex)
+                , onInput (SetComment dayIndex taskIndex)
                 ]
                 []
             , button
                 [ class "close_button"
-                , onClick (RemoveTask dayName taskIndex)
+                , onClick (RemoveTask dayIndex taskIndex)
                 ]
                 [ text "x" ]
             ]
@@ -169,7 +172,7 @@ viewTask dayName taskIndex task =
 
                     Nothing ->
                         value invalidTimeString
-                , onInput (SetStartTime dayName taskIndex)
+                , onInput (SetStartTime dayIndex taskIndex)
                 ]
                 []
             , input
@@ -181,7 +184,7 @@ viewTask dayName taskIndex task =
 
                     Nothing ->
                         value invalidTimeString
-                , onInput (SetStopTime dayName taskIndex)
+                , onInput (SetStopTime dayIndex taskIndex)
                 ]
                 []
             ]
@@ -239,19 +242,16 @@ stringToDayname string =
         "friday" ->
             Friday
 
+        --default to monday.
         _ ->
             Monday
 
 
-
---default to monday.
-
-
-viewDay : Maybe TimeInMinutes -> Day -> Html Msg
-viewDay requiredMinutes day =
+viewDay : Maybe TimeInMinutes -> DayIndex -> Day -> Html Msg
+viewDay requiredMinutes dayIndex day =
     div [ class "day" ]
         [ text (daynameToString day.dayName)
-        , div [ class "tasks" ] (Array.toList (Array.indexedMap (\taskIndex task -> viewTask day.dayName taskIndex task) day.tasks))
+        , div [ class "tasks" ] (Array.toList (Array.indexedMap (\taskIndex task -> viewTask dayIndex taskIndex task) day.tasks))
         , case requiredMinutes of
             Just minutes ->
                 if minutes > 0 then
@@ -262,28 +262,29 @@ viewDay requiredMinutes day =
 
             Nothing ->
                 time [ class "required_minutes_white" ] [ text invalidTimeString ]
-        , button [ onClick (AddTask day.dayName) ] [ text "add task" ]
+        , button [ onClick (AddTask dayIndex) ] [ text "add task" ]
         ]
 
 
-workWeek : List Day
+workWeek : Array Day
 workWeek =
-    [ { dayName = Monday
-      , tasks = Array.empty
-      }
-    , { dayName = Tuesday
-      , tasks = Array.empty
-      }
-    , { dayName = Wednesday
-      , tasks = Array.empty
-      }
-    , { dayName = Thursday
-      , tasks = Array.empty
-      }
-    , { dayName = Friday
-      , tasks = Array.empty
-      }
-    ]
+    Array.fromList
+        [ { dayName = Monday
+          , tasks = Array.empty
+          }
+        , { dayName = Tuesday
+          , tasks = Array.empty
+          }
+        , { dayName = Wednesday
+          , tasks = Array.empty
+          }
+        , { dayName = Thursday
+          , tasks = Array.empty
+          }
+        , { dayName = Friday
+          , tasks = Array.empty
+          }
+        ]
 
 
 main : Program Encode.Value Model Msg
@@ -297,7 +298,7 @@ main =
 
 
 type alias Model =
-    { days : List Day }
+    { days : Array Day }
 
 
 init : Encode.Value -> ( Model, Cmd Msg )
@@ -318,52 +319,58 @@ view model =
         requiredDailyWorkTime =
             8 * 60
 
-        addRequiredMinutesToList : Day -> List (Maybe TimeInMinutes) -> List (Maybe TimeInMinutes)
-        addRequiredMinutesToList day list =
+        addRequiredMinutesToArray : Day -> Array (Maybe TimeInMinutes) -> Array (Maybe TimeInMinutes)
+        addRequiredMinutesToArray day array =
             if Array.isEmpty day.tasks then
-                case List.head list of
+                case Array.get (Array.length array - 1) array of
                     Nothing ->
-                        Just 0 :: list
+                        Array.push (Just 0) array
 
                     Just accumulatedTime ->
-                        accumulatedTime :: list
+                        Array.push accumulatedTime array
 
             else
-                case ( dailyWorktime day, List.head list ) of
+                case ( dailyWorktime day, Array.get (Array.length array - 1) array ) of
                     ( Just workTime, Nothing ) ->
-                        Just (requiredDailyWorkTime - workTime) :: list
+                        Array.push (Just (requiredDailyWorkTime - workTime)) array
 
                     ( Just workTime, Just (Just accumulatedTime) ) ->
-                        Just ((requiredDailyWorkTime - workTime) + accumulatedTime) :: list
+                        Array.push (Just ((requiredDailyWorkTime - workTime) + accumulatedTime)) array
 
                     _ ->
-                        Nothing :: list
+                        Array.push Nothing array
 
-        requiredMinutes : List (Maybe TimeInMinutes)
+        requiredMinutes : Array (Maybe TimeInMinutes)
         requiredMinutes =
-            List.reverse (List.foldl addRequiredMinutesToList [] model.days)
+            Array.foldl addRequiredMinutesToArray Array.empty model.days
+
+        daysData : Array ( Maybe TimeInMinutes, Day )
+        daysData =
+            Array.Extra.zip requiredMinutes model.days
+
+        dayDataToHtml : Int -> ( Maybe TimeInMinutes, Day ) -> Html Msg
+        dayDataToHtml dayIndex dayData =
+            viewDay (Tuple.first dayData) dayIndex (Tuple.second dayData)
     in
-    div [ class "week" ] (List.map2 viewDay requiredMinutes model.days)
+    div [ class "week" ]
+        (Array.toList
+            (Array.indexedMap dayDataToHtml daysData)
+        )
 
 
 type Msg
-    = AddTask DayName
-    | RemoveTask DayName TaskIndex
-    | SetProject DayName TaskIndex String
-    | SetComment DayName TaskIndex String
-    | SetStartTime DayName TaskIndex String
-    | SetStopTime DayName TaskIndex String
+    = AddTask DayIndex
+    | RemoveTask DayIndex TaskIndex
+    | SetProject DayIndex TaskIndex String
+    | SetComment DayIndex TaskIndex String
+    | SetStartTime DayIndex TaskIndex String
+    | SetStopTime DayIndex TaskIndex String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    let
-        hasSameDayName : DayName -> Day -> Bool
-        hasSameDayName dayName day =
-            dayName == day.dayName
-    in
     case msg of
-        AddTask dayName ->
+        AddTask dayIndex ->
             let
                 addTask : Day -> Maybe TimeInMinutes -> Day
                 addTask day startTime =
@@ -378,21 +385,21 @@ update msg model =
                         Nothing ->
                             addTask day Maybe.Nothing
             in
-            ( { model | days = List.Extra.updateIf (hasSameDayName dayName) updateDay model.days }
+            ( { model | days = Array.Extra.update dayIndex updateDay model.days }
             , Cmd.none
             )
 
-        RemoveTask dayName taskIndex ->
+        RemoveTask dayIndex taskIndex ->
             let
                 removeTask : Day -> Day
                 removeTask day =
                     { day | tasks = Array.Extra.removeAt taskIndex day.tasks }
             in
-            ( { model | days = List.Extra.updateIf (hasSameDayName dayName) removeTask model.days }
+            ( { model | days = Array.Extra.update dayIndex removeTask model.days }
             , Cmd.none
             )
 
-        SetProject dayName taskIndex project ->
+        SetProject dayIndex taskIndex project ->
             let
                 setProject : Task -> Task
                 setProject task =
@@ -402,11 +409,11 @@ update msg model =
                 updateDay day =
                     { day | tasks = Array.Extra.update taskIndex setProject day.tasks }
             in
-            ( { model | days = List.Extra.updateIf (hasSameDayName dayName) updateDay model.days }
+            ( { model | days = Array.Extra.update dayIndex updateDay model.days }
             , Cmd.none
             )
 
-        SetComment dayName taskIndex comment ->
+        SetComment dayIndex taskIndex comment ->
             let
                 setComment : Task -> Task
                 setComment task =
@@ -416,11 +423,11 @@ update msg model =
                 updateDay day =
                     { day | tasks = Array.Extra.update taskIndex setComment day.tasks }
             in
-            ( { model | days = List.Extra.updateIf (hasSameDayName dayName) updateDay model.days }
+            ( { model | days = Array.Extra.update dayIndex updateDay model.days }
             , Cmd.none
             )
 
-        SetStartTime dayName taskIndex startTime ->
+        SetStartTime dayIndex taskIndex startTime ->
             let
                 setStartTime : Task -> Task
                 setStartTime task =
@@ -434,11 +441,11 @@ update msg model =
                 updateDay day =
                     { day | tasks = replaceAt taskIndex updateTask day.tasks }
             in
-            ( { model | days = List.Extra.updateIf (hasSameDayName dayName) updateDay model.days }
+            ( { model | days = Array.Extra.update dayIndex updateDay model.days }
             , Cmd.none
             )
 
-        SetStopTime dayName taskIndex stopTime ->
+        SetStopTime dayIndex taskIndex stopTime ->
             let
                 setStopTime : Task -> Task
                 setStopTime task =
@@ -452,7 +459,7 @@ update msg model =
                 updateDay day =
                     { day | tasks = replaceAt taskIndex updateTask day.tasks }
             in
-            ( { model | days = List.Extra.updateIf (hasSameDayName dayName) updateDay model.days }
+            ( { model | days = Array.Extra.update dayIndex updateDay model.days }
             , Cmd.none
             )
 
@@ -557,7 +564,7 @@ updateWithStorage msg oldModel =
 encode : Model -> Encode.Value
 encode model =
     Encode.object
-        [ ( "days", Encode.list encodeDay model.days ) ]
+        [ ( "days", Encode.array encodeDay model.days ) ]
 
 
 encodeDay : Day -> Encode.Value
@@ -601,7 +608,7 @@ encodeTask task =
 decoder : Decode.Decoder Model
 decoder =
     Decode.map Model
-        (Decode.field "days" (Decode.list dayDecoder))
+        (Decode.field "days" (Decode.array dayDecoder))
 
 
 dayDecoder : Decode.Decoder Day
