@@ -453,7 +453,7 @@ adaptToLunch task =
                     startTime < startLunch
 
                 startTimeInLunch =
-                    (startTime > startLunch) && (startTime <= endLunch)
+                    (startTime >= startLunch) && (startTime < endLunch)
 
                 stopTimeInLunch =
                     (stopTime > startLunch) && (stopTime <= endLunch)
