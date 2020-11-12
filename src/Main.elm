@@ -2,16 +2,17 @@ port module Main exposing (..)
 
 import Array exposing (Array)
 import Array.Extra
-import Browser exposing (element)
+import Browser
 import Html exposing (Html, button, div, input, text, time)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
-import Html.Keyed exposing (node)
-import Json.Decode as D exposing (Decoder, field, int, maybe, string)
-import Json.Encode as E
-import List.Extra exposing (splitWhen, uncons, updateIf)
+import Json.Decode as Decode
+import Json.Encode as Encode
+import List.Extra
 
---TODO: days to array, expose less in header, save and load.
+
+
+--TODO: days to array, expose less in header, save and load, add dates on clear.
 
 
 type alias TimeInMinutes =
@@ -285,7 +286,7 @@ workWeek =
     ]
 
 
-main : Program E.Value Model Msg
+main : Program Encode.Value Model Msg
 main =
     Browser.element
         { init = init
@@ -299,9 +300,9 @@ type alias Model =
     { days : List Day }
 
 
-init : E.Value -> ( Model, Cmd Msg )
+init : Encode.Value -> ( Model, Cmd Msg )
 init flags =
-    ( case D.decodeValue decoder flags of
+    ( case Decode.decodeValue decoder flags of
         Ok model ->
             model
 
@@ -539,7 +540,7 @@ adaptToLunch task =
             Array.fromList [ task ]
 
 
-port setStorage : E.Value -> Cmd msg
+port setStorage : Encode.Value -> Cmd msg
 
 
 updateWithStorage : Msg -> Model -> ( Model, Cmd Msg )
@@ -553,27 +554,27 @@ updateWithStorage msg oldModel =
     )
 
 
-encode : Model -> E.Value
+encode : Model -> Encode.Value
 encode model =
-    E.object
-        [ ( "days", E.list encodeDay model.days ) ]
+    Encode.object
+        [ ( "days", Encode.list encodeDay model.days ) ]
 
 
-encodeDay : Day -> E.Value
+encodeDay : Day -> Encode.Value
 encodeDay day =
-    E.object
-        [ ( "dayName", E.string (daynameToString day.dayName) )
-        , ( "tasks", E.array encodeTask day.tasks )
+    Encode.object
+        [ ( "dayName", Encode.string (daynameToString day.dayName) )
+        , ( "tasks", Encode.array encodeTask day.tasks )
         ]
 
 
-encodeTask : Task -> E.Value
+encodeTask : Task -> Encode.Value
 encodeTask task =
     let
         startTime =
             case task.startTime of
                 Just minutes ->
-                    [ ( "startTime", E.int minutes ) ]
+                    [ ( "startTime", Encode.int minutes ) ]
 
                 Nothing ->
                     []
@@ -581,15 +582,15 @@ encodeTask task =
         stopTime =
             case task.stopTime of
                 Just minutes ->
-                    [ ( "stopTime", E.int minutes ) ]
+                    [ ( "stopTime", Encode.int minutes ) ]
 
                 Nothing ->
                     []
     in
-    E.object
+    Encode.object
         (List.concat
-            [ [ ( "project", E.string task.project )
-              , ( "comment", E.string task.comment )
+            [ [ ( "project", Encode.string task.project )
+              , ( "comment", Encode.string task.comment )
               ]
             , startTime
             , stopTime
@@ -597,23 +598,23 @@ encodeTask task =
         )
 
 
-decoder : D.Decoder Model
+decoder : Decode.Decoder Model
 decoder =
-    D.map Model
-        (field "days" (D.list dayDecoder))
+    Decode.map Model
+        (Decode.field "days" (Decode.list dayDecoder))
 
 
-dayDecoder : D.Decoder Day
+dayDecoder : Decode.Decoder Day
 dayDecoder =
-    D.map2 Day
-        (D.map stringToDayname (field "dayName" string))
-        (field "tasks" (D.array taskDecoder))
+    Decode.map2 Day
+        (Decode.map stringToDayname (Decode.field "dayName" Decode.string))
+        (Decode.field "tasks" (Decode.array taskDecoder))
 
 
-taskDecoder : D.Decoder Task
+taskDecoder : Decode.Decoder Task
 taskDecoder =
-    D.map4 Task
-        (field "project" string)
-        (field "comment" string)
-        (maybe (field "startTime" int))
-        (maybe (field "stopTime" int))
+    Decode.map4 Task
+        (Decode.field "project" Decode.string)
+        (Decode.field "comment" Decode.string)
+        (Decode.maybe (Decode.field "startTime" Decode.int))
+        (Decode.maybe (Decode.field "stopTime" Decode.int))
