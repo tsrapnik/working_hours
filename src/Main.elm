@@ -92,6 +92,7 @@ taskTime task =
         ( Just startTime, Just stopTime ) ->
             if (stopTime - startTime) < 0 then
                 Nothing
+
             else
                 Just (stopTime - startTime)
 
@@ -272,26 +273,24 @@ view model =
         requiredDailyWorkTime =
             8 * 60
 
-        addRequiredMinutesToArray : Day -> Array (Maybe TimeInMinutes) -> Array (Maybe TimeInMinutes)
-        addRequiredMinutesToArray day array =
-            if Array.isEmpty day.tasks then
-                case Array.get (Array.length array - 1) array of
-                    Nothing ->
-                        Array.push (Just 0) array
-
-                    Just accumulatedTime ->
-                        Array.push accumulatedTime array
+        requiredWorkTime passedWorkTime =
+            if passedWorkTime == 0 then
+                0
 
             else
-                case ( dailyWorktime day, Array.get (Array.length array - 1) array ) of
-                    ( Just workTime, Nothing ) ->
-                        Array.push (Just (requiredDailyWorkTime - workTime)) array
+                requiredDailyWorkTime - passedWorkTime
 
-                    ( Just workTime, Just (Just accumulatedTime) ) ->
-                        Array.push (Just ((requiredDailyWorkTime - workTime) + accumulatedTime)) array
+        addRequiredMinutesToArray : Day -> Array (Maybe TimeInMinutes) -> Array (Maybe TimeInMinutes)
+        addRequiredMinutesToArray day array =
+            case ( dailyWorktime day, Array.get (Array.length array - 1) array ) of
+                ( Just workTime, Nothing ) ->
+                    Array.push (Just (requiredWorkTime workTime)) array
 
-                    _ ->
-                        Array.push Nothing array
+                ( Just workTime, Just (Just accumulatedTime) ) ->
+                    Array.push (Just (requiredWorkTime workTime + accumulatedTime)) array
+
+                _ ->
+                    Array.push Nothing array
 
         requiredMinutes : Array (Maybe TimeInMinutes)
         requiredMinutes =
