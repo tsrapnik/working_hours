@@ -1,17 +1,21 @@
 port module Main exposing (..)
 
-import Array exposing (Array)
+import Array exposing (Array, filter)
 import Array.Extra
 import Browser
+import File exposing (File)
+import File.Download as Download
+import File.Select as Select
 import Html exposing (Html, button, div, input, text, time)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 import Json.Decode as Decode
 import Json.Encode as Encode
+import Task
 
 
 
---TODO: days to array, expose less in header, save and load, add dates on clear.
+--TODO: add dates on clear.
 
 
 type alias TimeInMinutes =
@@ -246,13 +250,18 @@ main =
     Browser.element
         { init = init
         , view = view
-        , update = updateWithStorage
+        , update = update
         , subscriptions = \_ -> Sub.none
         }
 
 
 type alias Model =
     { days : Array Day }
+
+
+emptyWeek : Model
+emptyWeek =
+    { days = Array.repeat 5 { tasks = Array.empty } }
 
 
 init : Encode.Value -> ( Model, Cmd Msg )
@@ -262,7 +271,7 @@ init flags =
             model
 
         Err _ ->
-            { days = Array.repeat 5 { tasks = Array.empty } }
+            emptyWeek
     , Cmd.none
     )
 
@@ -304,10 +313,17 @@ view model =
         dayDataToHtml dayIndex dayData =
             viewDay (Tuple.first dayData) dayIndex (Tuple.second dayData)
     in
-    div [ class "week" ]
-        (Array.toList
-            (Array.indexedMap dayDataToHtml daysData)
-        )
+    div []
+        [ div [ class "week" ]
+            (Array.toList
+                (Array.indexedMap dayDataToHtml daysData)
+            )
+        , div [ class "loadSave" ]
+            [ button [ class "load", onClick Save ] [ text "save" ]
+            , button [ class "save", onClick Load ] [ text "load" ]
+            , button [ class "clear", onClick Clear ] [ text "clear" ]
+            ]
+        ]
 
 
 type Msg
@@ -317,6 +333,11 @@ type Msg
     | SetComment DayIndex TaskIndex String
     | SetStartTime DayIndex TaskIndex String
     | SetStopTime DayIndex TaskIndex String
+    | Save
+    | Load
+    | Loaded File
+    | Parsed String
+    | Clear
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -336,9 +357,13 @@ update msg model =
 
                         Nothing ->
                             addTask day Maybe.Nothing
+
+                newModel : Model
+                newModel =
+                    { model | days = Array.Extra.update dayIndex updateDay model.days }
             in
-            ( { model | days = Array.Extra.update dayIndex updateDay model.days }
-            , Cmd.none
+            ( newModel
+            , setStorage (encode newModel)
             )
 
         RemoveTask dayIndex taskIndex ->
@@ -346,9 +371,13 @@ update msg model =
                 removeTask : Day -> Day
                 removeTask day =
                     { day | tasks = Array.Extra.removeAt taskIndex day.tasks }
+
+                newModel : Model
+                newModel =
+                    { model | days = Array.Extra.update dayIndex removeTask model.days }
             in
-            ( { model | days = Array.Extra.update dayIndex removeTask model.days }
-            , Cmd.none
+            ( newModel
+            , setStorage (encode newModel)
             )
 
         SetProject dayIndex taskIndex project ->
@@ -360,9 +389,13 @@ update msg model =
                 updateDay : Day -> Day
                 updateDay day =
                     { day | tasks = Array.Extra.update taskIndex setProject day.tasks }
+
+                newModel : Model
+                newModel =
+                    { model | days = Array.Extra.update dayIndex updateDay model.days }
             in
-            ( { model | days = Array.Extra.update dayIndex updateDay model.days }
-            , Cmd.none
+            ( newModel
+            , setStorage (encode newModel)
             )
 
         SetComment dayIndex taskIndex comment ->
@@ -374,9 +407,13 @@ update msg model =
                 updateDay : Day -> Day
                 updateDay day =
                     { day | tasks = Array.Extra.update taskIndex setComment day.tasks }
+
+                newModel : Model
+                newModel =
+                    { model | days = Array.Extra.update dayIndex updateDay model.days }
             in
-            ( { model | days = Array.Extra.update dayIndex updateDay model.days }
-            , Cmd.none
+            ( newModel
+            , setStorage (encode newModel)
             )
 
         SetStartTime dayIndex taskIndex startTime ->
@@ -392,9 +429,13 @@ update msg model =
                 updateDay : Day -> Day
                 updateDay day =
                     { day | tasks = replaceAt taskIndex updateTask day.tasks }
+
+                newModel : Model
+                newModel =
+                    { model | days = Array.Extra.update dayIndex updateDay model.days }
             in
-            ( { model | days = Array.Extra.update dayIndex updateDay model.days }
-            , Cmd.none
+            ( newModel
+            , setStorage (encode newModel)
             )
 
         SetStopTime dayIndex taskIndex stopTime ->
@@ -410,9 +451,50 @@ update msg model =
                 updateDay : Day -> Day
                 updateDay day =
                     { day | tasks = replaceAt taskIndex updateTask day.tasks }
+
+                newModel : Model
+                newModel =
+                    { model | days = Array.Extra.update dayIndex updateDay model.days }
             in
-            ( { model | days = Array.Extra.update dayIndex updateDay model.days }
-            , Cmd.none
+            ( newModel
+            , setStorage (encode newModel)
+            )
+
+        Save ->
+            ( model
+            , Download.string "working_hours.json" "application/json" (Encode.encode 4 (encode model))
+            )
+
+        Load ->
+            ( model
+            , Select.file [ "application/json" ] Loaded
+            )
+
+        Loaded file ->
+            ( model
+            , Task.perform Parsed (File.toString file)
+            )
+
+        Parsed string ->
+            let
+                vall =
+                    Decode.value
+
+                newModel =
+                    case Decode.decodeString decoder string of
+                        Ok decodedModel ->
+                            decodedModel
+
+                        Err _ ->
+                            model
+            in
+            ( newModel
+            , setStorage (encode newModel)
+            )
+
+        Clear ->
+            ( emptyWeek
+            , setStorage (encode emptyWeek)
             )
 
 
@@ -500,17 +582,6 @@ adaptToLunch task =
 
 
 port setStorage : Encode.Value -> Cmd msg
-
-
-updateWithStorage : Msg -> Model -> ( Model, Cmd Msg )
-updateWithStorage msg oldModel =
-    let
-        ( newModel, cmds ) =
-            update msg oldModel
-    in
-    ( newModel
-    , Cmd.batch [ setStorage (encode newModel), cmds ]
-    )
 
 
 encode : Model -> Encode.Value

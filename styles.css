@@ -10,6 +10,13 @@ body {
     background: #374e45;
 }
 
+button {
+    background-color: rgba(255, 255, 255, 0.4);
+    border: none;
+    font-size: 15px;
+    padding: 4px 0px;
+}
+
 .week {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
@@ -39,13 +46,6 @@ body {
 
 .day .required_minutes_white {
     background-color: rgba(0, 0, 0, 0.3);
-    padding: 4px 0px;
-}
-
-.day button {
-    background-color: rgba(255, 255, 255, 0.4);
-    border: none;
-    font-size: 15px;
     padding: 4px 0px;
 }
 
@@ -109,30 +109,21 @@ body {
     column-gap: 4px;
 }
 
-#menu_window {
+.loadSave {
     display: grid;
     margin: 20px 4px;
     grid-template-columns: 30% auto auto auto 30%;
+    column-gap: 4px;
 }
 
-#save_state {
-    margin: 4px;
-    width: 80px;
+.loadSave .load {
     grid-column: 2;
 }
 
-#load_state {
-    margin: 4px;
-    width: 80px;
+.loadSave .save {
     grid-column: 3;
 }
 
-#clear_state {
-    margin: 4px;
-    width: 80px;
+.loadSave .clear {
     grid-column: 4;
-}
-
-#anchor {
-    visibility: hidden;
 }
