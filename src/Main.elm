@@ -475,8 +475,19 @@ update msg model =
             )
 
         Save ->
+            let
+                yearAndWeek =
+                    case model.startDate of
+                        Just date ->
+                            Date.format "YYYY_w" date
+                        Nothing ->
+                            ""
+                fileName =
+                    "working_hours_" ++ yearAndWeek ++ ".json"
+            in
+            
             ( model
-            , Download.string "working_hours.json" "application/json" (Encode.encode 4 (encode model))
+            , Download.string fileName "application/json" (Encode.encode 4 (encode model))
             )
 
         Load ->
