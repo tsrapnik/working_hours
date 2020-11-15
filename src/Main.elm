@@ -13,7 +13,6 @@ import Html.Events exposing (onClick, onInput)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Task
-import Time exposing (Month(..))
 
 
 
@@ -228,11 +227,16 @@ dayIndexToString dayIndex =
             "unknown day"
 
 
-viewDay : Date -> Maybe TimeInMinutes -> DayIndex -> Day -> Html Msg
+viewDay : Maybe Date -> Maybe TimeInMinutes -> DayIndex -> Day -> Html Msg
 viewDay startDate requiredMinutes dayIndex day =
     div [ class "day" ]
-        [ div [] [text (dayIndexToString dayIndex)]
-        , div [] [text <| Date.toIsoString <| Date.add Date.Days dayIndex startDate]
+        [ div [] [ text (dayIndexToString dayIndex) ]
+        , case startDate of
+            Just date ->
+                div [] [ text <| Date.toIsoString <| Date.add Date.Days dayIndex date ]
+
+            Nothing ->
+                div [] []
         , div [ class "tasks" ] (Array.toList (Array.indexedMap (\taskIndex task -> viewTask dayIndex taskIndex task) day.tasks))
         , case requiredMinutes of
             Just minutes ->
@@ -260,27 +264,29 @@ main =
 
 type alias Model =
     { days : Array Day
-    , startDate : Date
+    , startDate : Maybe Date
     }
 
 
-emptyWeek : Model
+emptyWeek : Array Day
 emptyWeek =
-    { days = Array.repeat 5 { tasks = Array.empty }
-    , startDate = Date.fromCalendarDate 0 Jan 1
-    }
+    Array.repeat 5 { tasks = Array.empty }
 
 
 init : Encode.Value -> ( Model, Cmd Msg )
 init flags =
-    ( case Decode.decodeValue decoder flags of
+    case Decode.decodeValue decoder flags of
         Ok model ->
-            model
+            ( model
+            , Cmd.none
+            )
 
         Err _ ->
-            emptyWeek
-    , Cmd.none
-    )
+            ( { days = emptyWeek
+              , startDate = Nothing
+              }
+            , Task.perform ReceiveDate Date.today
+            )
 
 
 view : Model -> Html Msg
@@ -316,7 +322,7 @@ view model =
         daysData =
             Array.Extra.zip requiredMinutes model.days
 
-        dayDataToHtml : Date -> Int -> ( Maybe TimeInMinutes, Day ) -> Html Msg
+        dayDataToHtml : Maybe Date -> Int -> ( Maybe TimeInMinutes, Day ) -> Html Msg
         dayDataToHtml startDate dayIndex dayData =
             viewDay startDate (Tuple.first dayData) dayIndex (Tuple.second dayData)
     in
@@ -504,9 +510,13 @@ update msg model =
 
         ReceiveDate today ->
             let
-                previousMonday = Date.floor Date.Monday today
+                previousMonday =
+                    Date.floor Date.Monday today
+
                 newModel =
-                    { emptyWeek | startDate = previousMonday }
+                    { days = emptyWeek
+                    , startDate = Just previousMonday
+                    }
             in
             ( newModel
             , setStorage (encode newModel)
@@ -601,9 +611,21 @@ port setStorage : Encode.Value -> Cmd msg
 
 encode : Model -> Encode.Value
 encode model =
+    let
+        startDate =
+            case model.startDate of
+                Just date ->
+                    [ ( "startDate", Encode.int (Date.toRataDie date) ) ]
+
+                Nothing ->
+                    []
+    in
     Encode.object
-        [ ( "days", Encode.array encodeDay model.days )
-        , ("date", Encode.int (Date.toRataDie model.startDate)) ]
+        (List.concat
+            [ [ ( "days", Encode.array encodeDay model.days ) ]
+            , startDate
+            ]
+        )
 
 
 encodeDay : Day -> Encode.Value
@@ -647,7 +669,7 @@ decoder : Decode.Decoder Model
 decoder =
     Decode.map2 Model
         (Decode.field "days" (Decode.array dayDecoder))
-        (Decode.map Date.fromRataDie (Decode.field "date" Decode.int))
+        (Decode.maybe <| Decode.map Date.fromRataDie <| Decode.field "startDate" Decode.int)
 
 
 dayDecoder : Decode.Decoder Day
