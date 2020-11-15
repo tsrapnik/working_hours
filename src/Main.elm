@@ -3,6 +3,7 @@ port module Main exposing (..)
 import Array exposing (Array, filter)
 import Array.Extra
 import Browser
+import Date exposing (Date)
 import File exposing (File)
 import File.Download as Download
 import File.Select as Select
@@ -12,6 +13,7 @@ import Html.Events exposing (onClick, onInput)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Task
+import Time exposing (Month(..))
 
 
 
@@ -226,10 +228,11 @@ dayIndexToString dayIndex =
             "unknown day"
 
 
-viewDay : Maybe TimeInMinutes -> DayIndex -> Day -> Html Msg
-viewDay requiredMinutes dayIndex day =
+viewDay : Date -> Maybe TimeInMinutes -> DayIndex -> Day -> Html Msg
+viewDay startDate requiredMinutes dayIndex day =
     div [ class "day" ]
-        [ text (dayIndexToString dayIndex)
+        [ div [] [text (dayIndexToString dayIndex)]
+        , div [] [text <| Date.toIsoString <| Date.add Date.Days dayIndex startDate]
         , div [ class "tasks" ] (Array.toList (Array.indexedMap (\taskIndex task -> viewTask dayIndex taskIndex task) day.tasks))
         , case requiredMinutes of
             Just minutes ->
@@ -256,12 +259,16 @@ main =
 
 
 type alias Model =
-    { days : Array Day }
+    { days : Array Day
+    , startDate : Date
+    }
 
 
 emptyWeek : Model
 emptyWeek =
-    { days = Array.repeat 5 { tasks = Array.empty } }
+    { days = Array.repeat 5 { tasks = Array.empty }
+    , startDate = Date.fromCalendarDate 0 Jan 1
+    }
 
 
 init : Encode.Value -> ( Model, Cmd Msg )
@@ -309,14 +316,14 @@ view model =
         daysData =
             Array.Extra.zip requiredMinutes model.days
 
-        dayDataToHtml : Int -> ( Maybe TimeInMinutes, Day ) -> Html Msg
-        dayDataToHtml dayIndex dayData =
-            viewDay (Tuple.first dayData) dayIndex (Tuple.second dayData)
+        dayDataToHtml : Date -> Int -> ( Maybe TimeInMinutes, Day ) -> Html Msg
+        dayDataToHtml startDate dayIndex dayData =
+            viewDay startDate (Tuple.first dayData) dayIndex (Tuple.second dayData)
     in
     div []
         [ div [ class "week" ]
             (Array.toList
-                (Array.indexedMap dayDataToHtml daysData)
+                (Array.indexedMap (dayDataToHtml model.startDate) daysData)
             )
         , div [ class "loadSave" ]
             [ button [ class "load", onClick Save ] [ text "save" ]
@@ -338,6 +345,7 @@ type Msg
     | Loaded File
     | Parsed String
     | Clear
+    | ReceiveDate Date
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -477,9 +485,6 @@ update msg model =
 
         Parsed string ->
             let
-                vall =
-                    Decode.value
-
                 newModel =
                     case Decode.decodeString decoder string of
                         Ok decodedModel ->
@@ -493,8 +498,18 @@ update msg model =
             )
 
         Clear ->
-            ( emptyWeek
-            , setStorage (encode emptyWeek)
+            ( model
+            , Task.perform ReceiveDate Date.today
+            )
+
+        ReceiveDate today ->
+            let
+                previousMonday = Date.floor Date.Monday today
+                newModel =
+                    { emptyWeek | startDate = previousMonday }
+            in
+            ( newModel
+            , setStorage (encode newModel)
             )
 
 
@@ -587,7 +602,8 @@ port setStorage : Encode.Value -> Cmd msg
 encode : Model -> Encode.Value
 encode model =
     Encode.object
-        [ ( "days", Encode.array encodeDay model.days ) ]
+        [ ( "days", Encode.array encodeDay model.days )
+        , ("date", Encode.int (Date.toRataDie model.startDate)) ]
 
 
 encodeDay : Day -> Encode.Value
@@ -629,8 +645,9 @@ encodeTask task =
 
 decoder : Decode.Decoder Model
 decoder =
-    Decode.map Model
+    Decode.map2 Model
         (Decode.field "days" (Decode.array dayDecoder))
+        (Decode.map Date.fromRataDie (Decode.field "date" Decode.int))
 
 
 dayDecoder : Decode.Decoder Day
