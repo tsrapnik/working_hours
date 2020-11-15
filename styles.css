@@ -17,6 +17,15 @@ button {
     padding: 4px 0px;
 }
 
+button:hover {
+    background-color: rgba(255, 255, 255, 0.55);
+}
+
+button:active {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+
 .week {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
@@ -48,15 +57,6 @@ button {
     background-color: rgba(0, 0, 0, 0.3);
     padding: 4px 0px;
 }
-
-.day button:hover {
-    background-color: rgba(255, 255, 255, 0.55);
-}
-
-.day button:active {
-    background-color: rgba(255, 255, 255, 0.3);
-}
-
 .tasks {
     display: grid;
     row-gap: 8px;
