@@ -33,6 +33,7 @@ type Msg
     | RemoveTask DayIndex TaskIndex
     | SetProject DayIndex TaskIndex String
     | SetComment DayIndex TaskIndex String
+    | SetDayNotes DayIndex String
     | SetStartTime DayIndex TaskIndex String
     | SetStopTime DayIndex TaskIndex String
     | Save
@@ -55,6 +56,7 @@ type alias Model =
 
 type alias Day =
     { tasks : Array Task
+    , notes : String
     }
 
 
@@ -96,7 +98,7 @@ init flags =
 
 emptyWeek : Array Day
 emptyWeek =
-    Array.repeat 5 { tasks = Array.empty }
+    Array.repeat 5 { tasks = Array.empty, notes = "" }
 
 
 emptyTask : Maybe TimeInMinutes -> Task
@@ -184,6 +186,13 @@ viewDay startDate requiredMinutes dayIndex day =
             Nothing ->
                 time [ class "required_minutes_white" ] [ text invalidTimeString ]
         , button [ onClick (AddTask dayIndex) ] [ text "add task" ]
+        , input
+            [ class "comment"
+            , type_ "text"
+            , value day.notes
+            , onInput (SetDayNotes dayIndex)
+            ]
+            []
         ]
 
 
@@ -311,6 +320,20 @@ update msg model =
                 updateDay : Day -> Day
                 updateDay day =
                     { day | tasks = Array.Extra.update taskIndex setComment day.tasks }
+
+                newModel : Model
+                newModel =
+                    { model | days = Array.Extra.update dayIndex updateDay model.days }
+            in
+            ( newModel
+            , setStorage (encode newModel)
+            )
+
+        SetDayNotes dayIndex notes ->
+            let
+                updateDay : Day -> Day
+                updateDay day =
+                    { day | notes = notes }
 
                 newModel : Model
                 newModel =
@@ -452,6 +475,7 @@ encodeDay : Day -> Encode.Value
 encodeDay day =
     Encode.object
         [ ( "tasks", Encode.array encodeTask day.tasks )
+        , ( "notes", Encode.string day.notes)
         ]
 
 
@@ -494,8 +518,9 @@ decoder =
 
 dayDecoder : Decode.Decoder Day
 dayDecoder =
-    Decode.map Day
+    Decode.map2 Day
         (Decode.field "tasks" (Decode.array taskDecoder))
+        (Decode.field "notes" Decode.string)
 
 
 taskDecoder : Decode.Decoder Task
