@@ -40,6 +40,13 @@ button:active {
     resize: none;
     background-color: rgba(0, 0, 0, 0.1);
     border: none;
+    width: 100%;
+}
+
+.day_notes {
+    resize: none;
+    background-color: rgba(0, 0, 0, 0.1);
+    border: none;
 }
 
 .week {

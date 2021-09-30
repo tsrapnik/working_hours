@@ -1,6 +1,6 @@
 port module Main exposing (..)
 
-import Array exposing (Array, filter)
+import Array exposing (Array)
 import Array.Extra
 import Browser
 import Date exposing (Date)
@@ -34,6 +34,7 @@ type Msg
     | SetProject DayIndex TaskIndex String
     | SetComment DayIndex TaskIndex String
     | SetDayNotes DayIndex String
+    | SetNotes String
     | SetStartTime DayIndex TaskIndex String
     | SetStopTime DayIndex TaskIndex String
     | Save
@@ -51,6 +52,7 @@ type Msg
 type alias Model =
     { days : Array Day
     , startDate : Maybe Date
+    , notes : String
     }
 
 
@@ -91,6 +93,7 @@ init flags =
         Err _ ->
             ( { days = emptyWeek
               , startDate = Nothing
+              , notes = ""
               }
             , Task.perform ReceiveDate Date.today
             )
@@ -161,6 +164,15 @@ view model =
             , button [ class "save", onClick Load ] [ text "load" ]
             , button [ class "clear", onClick Clear ] [ text "clear" ]
             ]
+        , div []
+            [   textarea
+                [ class "notes"
+                , rows 10
+                , value model.notes
+                , onInput SetNotes
+                ]
+                []
+            ]
         ]
 
 
@@ -187,7 +199,7 @@ viewDay startDate requiredMinutes dayIndex day =
                 time [ class "required_minutes_white" ] [ text invalidTimeString ]
         , button [ onClick (AddTask dayIndex) ] [ text "add task" ]
         , textarea
-            [ class "notes"
+            [ class "day_notes"
             , rows 10
             , value day.notes
             , onInput (SetDayNotes dayIndex)
@@ -343,6 +355,16 @@ update msg model =
             , setStorage (encode newModel)
             )
 
+        SetNotes notes ->
+            let
+                newModel : Model
+                newModel =
+                    { model | notes = notes }
+            in
+            ( newModel
+            , setStorage (encode newModel)
+            )
+
         SetStartTime dayIndex taskIndex startTime ->
             let
                 setStartTime : Task -> Task
@@ -441,6 +463,7 @@ update msg model =
                 newModel =
                     { days = emptyWeek
                     , startDate = Just previousMonday
+                    , notes = ""
                     }
             in
             ( newModel
@@ -467,6 +490,7 @@ encode model =
         (List.concat
             [ [ ( "days", Encode.array encodeDay model.days ) ]
             , startDate
+            , [ ( "notes", Encode.string model.notes ) ]
             ]
         )
 
@@ -511,9 +535,10 @@ encodeTask task =
 
 decoder : Decode.Decoder Model
 decoder =
-    Decode.map2 Model
+    Decode.map3 Model
         (Decode.field "days" (Decode.array dayDecoder))
         (Decode.maybe <| Decode.map Date.fromRataDie <| Decode.field "startDate" Decode.int)
+        (Decode.field "notes" Decode.string)
 
 
 dayDecoder : Decode.Decoder Day
