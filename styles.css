@@ -36,6 +36,11 @@ button:active {
     background-color: rgba(255, 255, 255, 0.3);
 }
 
+.notes {
+    resize: none;
+    background-color: rgba(0, 0, 0, 0.1);
+    border: none;
+}
 
 .week {
     display: grid;

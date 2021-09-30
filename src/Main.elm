@@ -7,7 +7,7 @@ import Date exposing (Date)
 import File exposing (File)
 import File.Download as Download
 import File.Select as Select
-import Html exposing (Html, button, div, input, text, time)
+import Html exposing (Html, button, div, input, text, textarea, time)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 import Json.Decode as Decode
@@ -186,9 +186,9 @@ viewDay startDate requiredMinutes dayIndex day =
             Nothing ->
                 time [ class "required_minutes_white" ] [ text invalidTimeString ]
         , button [ onClick (AddTask dayIndex) ] [ text "add task" ]
-        , input
-            [ class "comment"
-            , type_ "text"
+        , textarea
+            [ class "notes"
+            , rows 10
             , value day.notes
             , onInput (SetDayNotes dayIndex)
             ]
