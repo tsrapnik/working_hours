@@ -171,7 +171,7 @@ view model =
             , button [ class "update_date", onClick UpdateDate ] [ text "update date" ]
             ]
         , div []
-            [   textarea
+            [ textarea
                 [ class "notes"
                 , rows 10
                 , value model.notes
@@ -475,15 +475,21 @@ update msg model =
             ( newModel
             , setStorage (encode newModel)
             )
+
         SaveNotes ->
-            (model
-            , setStorage (encode model))
+            ( model
+            , setStorage (encode model)
+            )
+
         LoadNotes ->
-            (model
-            , setStorage (encode model))
+            ( model
+            , setStorage (encode model)
+            )
+
         UpdateDate ->
-            (model
-            , setStorage (encode model))
+            ( model
+            , setStorage (encode model)
+            )
 
 
 
@@ -514,7 +520,7 @@ encodeDay : Day -> Encode.Value
 encodeDay day =
     Encode.object
         [ ( "tasks", Encode.array encodeTask day.tasks )
-        , ( "notes", Encode.string day.notes)
+        , ( "notes", Encode.string day.notes )
         ]
 
 
