@@ -37,12 +37,15 @@ type Msg
     | SetNotes String
     | SetStartTime DayIndex TaskIndex String
     | SetStopTime DayIndex TaskIndex String
-    | Save
-    | Load
+    | SaveTasks
+    | LoadTasks
     | Loaded File
     | Parsed String
-    | Clear
+    | ClearTasks
     | ReceiveDate Date
+    | SaveNotes
+    | LoadNotes
+    | UpdateDate
 
 
 
@@ -160,9 +163,12 @@ view model =
                 (Array.indexedMap (dayDataToHtml model.startDate) daysData)
             )
         , div [ class "loadSave" ]
-            [ button [ class "load", onClick Save ] [ text "save" ]
-            , button [ class "save", onClick Load ] [ text "load" ]
-            , button [ class "clear", onClick Clear ] [ text "clear" ]
+            [ button [ class "load_tasks", onClick SaveTasks ] [ text "save tasks" ]
+            , button [ class "save_tasks", onClick LoadTasks ] [ text "load tasks" ]
+            , button [ class "clear_tasks", onClick ClearTasks ] [ text "clear tasks" ]
+            , button [ class "save_notes", onClick SaveNotes ] [ text "save notes" ]
+            , button [ class "load_notes", onClick LoadNotes ] [ text "load notes" ]
+            , button [ class "update_date", onClick UpdateDate ] [ text "update date" ]
             ]
         , div []
             [   textarea
@@ -409,7 +415,7 @@ update msg model =
             , setStorage (encode newModel)
             )
 
-        Save ->
+        SaveTasks ->
             let
                 yearAndWeek =
                     case model.startDate of
@@ -426,7 +432,7 @@ update msg model =
             , Download.string fileName "application/json" (Encode.encode 4 (encode model))
             )
 
-        Load ->
+        LoadTasks ->
             ( model
             , Select.file [ "application/json" ] Loaded
             )
@@ -450,7 +456,7 @@ update msg model =
             , setStorage (encode newModel)
             )
 
-        Clear ->
+        ClearTasks ->
             ( model
             , Task.perform ReceiveDate Date.today
             )
@@ -469,6 +475,15 @@ update msg model =
             ( newModel
             , setStorage (encode newModel)
             )
+        SaveNotes ->
+            (model
+            , setStorage (encode model))
+        LoadNotes ->
+            (model
+            , setStorage (encode model))
+        UpdateDate ->
+            (model
+            , setStorage (encode model))
 
 
 

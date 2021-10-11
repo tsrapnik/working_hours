@@ -135,18 +135,37 @@ button:active {
 .loadSave {
     display: grid;
     margin: 20px 4px;
-    grid-template-columns: 30% auto auto auto 30%;
+    grid-template-columns: 40% auto auto auto 40%;
     column-gap: 4px;
+    row-gap: 4px;
 }
 
-.loadSave .load {
+.loadSave .load_tasks {
     grid-column: 2;
+    grid-row: 1;
 }
 
-.loadSave .save {
+.loadSave .save_tasks {
     grid-column: 3;
+    grid-row: 1;
 }
 
-.loadSave .clear {
+.loadSave .clear_tasks {
     grid-column: 4;
+    grid-row: 1;
+}
+
+.loadSave .load_notes {
+    grid-column: 2;
+    grid-row: 2;
+}
+
+.loadSave .save_notes {
+    grid-column: 3;
+    grid-row: 2
+}
+
+.loadSave .update_date {
+    grid-column: 4;
+    grid-row: 2
 }
