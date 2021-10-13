@@ -39,12 +39,14 @@ type Msg
     | SetStopTime DayIndex TaskIndex String
     | SaveTasks
     | LoadTasks
-    | Loaded File
-    | Parsed String
+    | LoadedTasks File
+    | ParsedTasks String
     | ClearTasks
     | ReceiveDate Date
     | SaveNotes
     | LoadNotes
+    | LoadedNotes File
+    | ParsedNotes String
     | UpdateDate
 
 
@@ -434,15 +436,15 @@ update msg model =
 
         LoadTasks ->
             ( model
-            , Select.file [ "application/json" ] Loaded
+            , Select.file [ "application/json" ] LoadedTasks
             )
 
-        Loaded file ->
+        LoadedTasks file ->
             ( model
-            , Task.perform Parsed (File.toString file)
+            , Task.perform ParsedTasks (File.toString file)
             )
 
-        Parsed string ->
+        ParsedTasks string ->
             let
                 newModel =
                     case Decode.decodeString decoder string of
@@ -486,6 +488,16 @@ update msg model =
             , setStorage (encode model)
             )
 
+        LoadedNotes file ->
+            ( model
+            , setStorage (encode model)
+            )
+
+        ParsedNotes string ->
+            ( model
+            , setStorage (encode model)
+            )
+
         UpdateDate ->
             ( model
             , setStorage (encode model)
@@ -494,6 +506,20 @@ update msg model =
 
 
 {- json -}
+
+
+encodeNotes : Model -> Encode.Value
+encodeNotes model =
+    Encode.object
+        [ ( "days", Encode.array encodeDayNotes model.days )
+        , ( "notes", Encode.string model.notes )
+        ]
+
+
+encodeDayNotes : Day -> Encode.Value
+encodeDayNotes day =
+    Encode.object
+        [ ( "notes", Encode.string day.notes ) ]
 
 
 encode : Model -> Encode.Value
