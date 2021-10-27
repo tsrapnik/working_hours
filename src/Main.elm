@@ -37,11 +37,11 @@ type Msg
     | SetNotes String
     | SetStartTime DayIndex TaskIndex String
     | SetStopTime DayIndex TaskIndex String
-    | SaveTasks
-    | LoadTasks
-    | LoadedTasks File
-    | ParsedTasks String
-    | ClearTasks
+    | SaveWork
+    | LoadWork
+    | LoadedWork File
+    | ParsedWork String
+    | ClearWork
     | ReceiveDate Date
     | SaveNotes
     | LoadNotes
@@ -165,9 +165,9 @@ view model =
                 (Array.indexedMap (dayDataToHtml model.startDate) daysData)
             )
         , div [ class "loadSave" ]
-            [ button [ class "load_tasks", onClick SaveTasks ] [ text "save tasks" ]
-            , button [ class "save_tasks", onClick LoadTasks ] [ text "load tasks" ]
-            , button [ class "clear_tasks", onClick ClearTasks ] [ text "clear tasks" ]
+            [ button [ class "load_tasks", onClick SaveWork ] [ text "save tasks" ]
+            , button [ class "save_tasks", onClick LoadWork ] [ text "load tasks" ]
+            , button [ class "clear_tasks", onClick ClearWork ] [ text "clear tasks" ]
             , button [ class "save_notes", onClick SaveNotes ] [ text "save notes" ]
             , button [ class "load_notes", onClick LoadNotes ] [ text "load notes" ]
             , button [ class "update_date", onClick UpdateDate ] [ text "update date" ]
@@ -417,7 +417,7 @@ update msg model =
             , setStorage (encode newModel)
             )
 
-        SaveTasks ->
+        SaveWork ->
             let
                 yearAndWeek =
                     case model.startDate of
@@ -431,25 +431,25 @@ update msg model =
                     "working_hours_" ++ yearAndWeek ++ ".json"
             in
             ( model
-            , Download.string fileName "application/json" (Encode.encode 4 (encode model))
+            , Download.string fileName "application/json" (Encode.encode 4 (encodeWork model))
             )
 
-        LoadTasks ->
+        LoadWork ->
             ( model
-            , Select.file [ "application/json" ] LoadedTasks
+            , Select.file [ "application/json" ] LoadedWork
             )
 
-        LoadedTasks file ->
+        LoadedWork file ->
             ( model
-            , Task.perform ParsedTasks (File.toString file)
+            , Task.perform ParsedWork (File.toString file)
             )
 
-        ParsedTasks string ->
+        ParsedWork string ->
             let
                 newModel =
-                    case Decode.decodeString decoder string of
-                        Ok decodedModel ->
-                            decodedModel
+                    case Decode.decodeString decoderWork string of
+                        Ok decodedModelWork ->
+                            updateModelWithWork model decodedModelWork
 
                         Err _ ->
                             model
@@ -458,7 +458,7 @@ update msg model =
             , setStorage (encode newModel)
             )
 
-        ClearTasks ->
+        ClearWork ->
             ( model
             , Task.perform ReceiveDate Date.today
             )
@@ -479,23 +479,44 @@ update msg model =
             )
 
         SaveNotes ->
+            let
+                yearAndWeek =
+                    case model.startDate of
+                        Just date ->
+                            Date.format "YYYY_w" date
+
+                        Nothing ->
+                            ""
+
+                fileName =
+                    "notes_" ++ yearAndWeek ++ ".json"
+            in
             ( model
-            , setStorage (encode model)
+            , Download.string fileName "application/json" (Encode.encode 4 (encodeNotes model))
             )
 
         LoadNotes ->
             ( model
-            , setStorage (encode model)
+            , Select.file [ "application/json" ] LoadedNotes
             )
 
         LoadedNotes file ->
             ( model
-            , setStorage (encode model)
+            , Task.perform ParsedNotes (File.toString file)
             )
 
         ParsedNotes string ->
-            ( model
-            , setStorage (encode model)
+            let
+                newModel =
+                    case Decode.decodeString decoderNotes string of
+                        Ok decodedModelNotes ->
+                            updateModelWithNotes model decodedModelNotes
+
+                        Err _ ->
+                            model
+            in
+            ( newModel
+            , setStorage (encode newModel)
             )
 
         UpdateDate ->
