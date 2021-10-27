@@ -853,8 +853,17 @@ type alias ModelNotes =
 
 
 type alias DayNotes =
-    { notes : String
-    }
+    String
+
+
+updateModelWithNotes : Model -> ModelNotes -> Model
+updateModelWithNotes model modelNotes =
+    let
+        updateDayWithNotes : Day -> DayNotes -> Day
+        updateDayWithNotes day dayNotes =
+            { day | notes = dayNotes }
+    in
+    { model | notes = modelNotes.notes, days = Array.Extra.map2 updateDayWithNotes model.days modelNotes.days }
 
 
 decoderNotes : Decode.Decoder ModelNotes
@@ -866,8 +875,7 @@ decoderNotes =
 
 dayDecoderNotes : Decode.Decoder DayNotes
 dayDecoderNotes =
-    Decode.map DayNotes
-        (Decode.field "notes" Decode.string)
+    Decode.field "notes" Decode.string
 
 
 type alias ModelWork =
@@ -879,6 +887,16 @@ type alias ModelWork =
 type alias DayWork =
     { tasks : Array Task
     }
+
+
+updateModelWithWork : Model -> ModelWork -> Model
+updateModelWithWork model modelWork =
+    let
+        updateDayWithWork : Day -> DayWork -> Day
+        updateDayWithWork day dayWork =
+            { day | tasks = dayWork.tasks }
+    in
+    { model | days = Array.Extra.map2 updateDayWithWork model.days modelWork.days, startDate = modelWork.startDate }
 
 
 decoderWork : Decode.Decoder ModelWork
