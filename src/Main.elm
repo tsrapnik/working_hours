@@ -845,3 +845,50 @@ encodeWorkDay day =
         [ ( "tasks", Encode.array encodeTask day.tasks )
         ]
 
+
+type alias ModelNotes =
+    { days : Array DayNotes
+    , notes : String
+    }
+
+
+type alias DayNotes =
+    { notes : String
+    }
+
+
+decoderNotes : Decode.Decoder ModelNotes
+decoderNotes =
+    Decode.map2 ModelNotes
+        (Decode.field "days" (Decode.array dayDecoderNotes))
+        (Decode.field "notes" Decode.string)
+
+
+dayDecoderNotes : Decode.Decoder DayNotes
+dayDecoderNotes =
+    Decode.map DayNotes
+        (Decode.field "notes" Decode.string)
+
+
+type alias ModelWork =
+    { days : Array DayWork
+    , startDate : Maybe Date
+    }
+
+
+type alias DayWork =
+    { tasks : Array Task
+    }
+
+
+decoderWork : Decode.Decoder ModelWork
+decoderWork =
+    Decode.map2 ModelWork
+        (Decode.field "days" (Decode.array dayDecoderWork))
+        (Decode.maybe <| Decode.map Date.fromRataDie <| Decode.field "startDate" Decode.int)
+
+
+dayDecoderWork : Decode.Decoder DayWork
+dayDecoderWork =
+    Decode.map DayWork
+        (Decode.field "tasks" (Decode.array taskDecoder))
