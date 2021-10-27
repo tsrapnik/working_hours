@@ -508,20 +508,6 @@ update msg model =
 {- json -}
 
 
-encodeNotes : Model -> Encode.Value
-encodeNotes model =
-    Encode.object
-        [ ( "days", Encode.array encodeDayNotes model.days )
-        , ( "notes", Encode.string model.notes )
-        ]
-
-
-encodeDayNotes : Day -> Encode.Value
-encodeDayNotes day =
-    Encode.object
-        [ ( "notes", Encode.string day.notes ) ]
-
-
 encode : Model -> Encode.Value
 encode model =
     let
@@ -814,3 +800,48 @@ adaptToLunch task =
 
         _ ->
             Array.fromList [ task ]
+
+
+
+{- partial encoders and decoders -}
+
+
+encodeNotes : Model -> Encode.Value
+encodeNotes model =
+    Encode.object
+        [ ( "days", Encode.array encodeDayNotes model.days )
+        , ( "notes", Encode.string model.notes )
+        ]
+
+
+encodeDayNotes : Day -> Encode.Value
+encodeDayNotes day =
+    Encode.object
+        [ ( "notes", Encode.string day.notes ) ]
+
+
+encodeWork : Model -> Encode.Value
+encodeWork model =
+    let
+        startDate =
+            case model.startDate of
+                Just date ->
+                    [ ( "startDate", Encode.int (Date.toRataDie date) ) ]
+
+                Nothing ->
+                    []
+    in
+    Encode.object
+        (List.concat
+            [ [ ( "days", Encode.array encodeWorkDay model.days ) ]
+            , startDate
+            ]
+        )
+
+
+encodeWorkDay : Day -> Encode.Value
+encodeWorkDay day =
+    Encode.object
+        [ ( "tasks", Encode.array encodeTask day.tasks )
+        ]
+
