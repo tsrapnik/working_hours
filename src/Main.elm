@@ -14,7 +14,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Task
 
-
+-- TODO: implement update date, rename and reaorder buttons, rename work to hours, rename filename working hours to hours, multiple notes per day and per total
 port setStorage : Encode.Value -> Cmd msg
 
 
