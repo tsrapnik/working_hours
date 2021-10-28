@@ -14,7 +14,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Task
 
--- TODO: implement update date, rename and reaorder buttons, rename work to hours, rename filename working hours to hours, multiple notes per day and per total
+-- TODO: implement update date, multiple notes per day and per total
 port setStorage : Encode.Value -> Cmd msg
 
 
@@ -37,11 +37,11 @@ type Msg
     | SetNotes String
     | SetStartTime DayIndex TaskIndex String
     | SetStopTime DayIndex TaskIndex String
-    | SaveWork
-    | LoadWork
-    | LoadedWork File
-    | ParsedWork String
-    | ClearWork
+    | SaveHours
+    | LoadHours
+    | LoadedHours File
+    | ParsedHours String
+    | ClearHours
     | ReceiveDate Date
     | SaveNotes
     | LoadNotes
@@ -165,11 +165,11 @@ view model =
                 (Array.indexedMap (dayDataToHtml model.startDate) daysData)
             )
         , div [ class "loadSave" ]
-            [ button [ class "load_tasks", onClick SaveWork ] [ text "save tasks" ]
-            , button [ class "save_tasks", onClick LoadWork ] [ text "load tasks" ]
-            , button [ class "clear_tasks", onClick ClearWork ] [ text "clear tasks" ]
-            , button [ class "save_notes", onClick SaveNotes ] [ text "save notes" ]
+            [ button [ class "load_hours", onClick LoadHours ] [ text "load hours" ]
+            , button [ class "save_hours", onClick SaveHours ] [ text "save hours" ]
+            , button [ class "clear_hours", onClick ClearHours ] [ text "clear hours" ]
             , button [ class "load_notes", onClick LoadNotes ] [ text "load notes" ]
+            , button [ class "save_notes", onClick SaveNotes ] [ text "save notes" ]
             , button [ class "update_date", onClick UpdateDate ] [ text "update date" ]
             ]
         , div []
@@ -417,7 +417,7 @@ update msg model =
             , setStorage (encode newModel)
             )
 
-        SaveWork ->
+        SaveHours ->
             let
                 yearAndWeek =
                     case model.startDate of
@@ -428,28 +428,28 @@ update msg model =
                             ""
 
                 fileName =
-                    "working_hours_" ++ yearAndWeek ++ ".json"
+                    "hours_" ++ yearAndWeek ++ ".json"
             in
             ( model
-            , Download.string fileName "application/json" (Encode.encode 4 (encodeWork model))
+            , Download.string fileName "application/json" (Encode.encode 4 (encodeHours model))
             )
 
-        LoadWork ->
+        LoadHours ->
             ( model
-            , Select.file [ "application/json" ] LoadedWork
+            , Select.file [ "application/json" ] LoadedHours
             )
 
-        LoadedWork file ->
+        LoadedHours file ->
             ( model
-            , Task.perform ParsedWork (File.toString file)
+            , Task.perform ParsedHours (File.toString file)
             )
 
-        ParsedWork string ->
+        ParsedHours string ->
             let
                 newModel =
-                    case Decode.decodeString decoderWork string of
-                        Ok decodedModelWork ->
-                            updateModelWithWork model decodedModelWork
+                    case Decode.decodeString decoderHours string of
+                        Ok decodedModelHours ->
+                            updateModelWithHours model decodedModelHours
 
                         Err _ ->
                             model
@@ -458,7 +458,7 @@ update msg model =
             , setStorage (encode newModel)
             )
 
-        ClearWork ->
+        ClearHours ->
             ( model
             , Task.perform ReceiveDate Date.today
             )
@@ -841,8 +841,8 @@ encodeDayNotes day =
         [ ( "notes", Encode.string day.notes ) ]
 
 
-encodeWork : Model -> Encode.Value
-encodeWork model =
+encodeHours : Model -> Encode.Value
+encodeHours model =
     let
         startDate =
             case model.startDate of
@@ -854,14 +854,14 @@ encodeWork model =
     in
     Encode.object
         (List.concat
-            [ [ ( "days", Encode.array encodeWorkDay model.days ) ]
+            [ [ ( "days", Encode.array encodeHoursDay model.days ) ]
             , startDate
             ]
         )
 
 
-encodeWorkDay : Day -> Encode.Value
-encodeWorkDay day =
+encodeHoursDay : Day -> Encode.Value
+encodeHoursDay day =
     Encode.object
         [ ( "tasks", Encode.array encodeTask day.tasks )
         ]
@@ -899,35 +899,35 @@ dayDecoderNotes =
     Decode.field "notes" Decode.string
 
 
-type alias ModelWork =
-    { days : Array DayWork
+type alias ModelHours =
+    { days : Array DayHours
     , startDate : Maybe Date
     }
 
 
-type alias DayWork =
+type alias DayHours =
     { tasks : Array Task
     }
 
 
-updateModelWithWork : Model -> ModelWork -> Model
-updateModelWithWork model modelWork =
+updateModelWithHours : Model -> ModelHours -> Model
+updateModelWithHours model modelHours =
     let
-        updateDayWithWork : Day -> DayWork -> Day
-        updateDayWithWork day dayWork =
-            { day | tasks = dayWork.tasks }
+        updateDayWithHours : Day -> DayHours -> Day
+        updateDayWithHours day dayHours =
+            { day | tasks = dayHours.tasks }
     in
-    { model | days = Array.Extra.map2 updateDayWithWork model.days modelWork.days, startDate = modelWork.startDate }
+    { model | days = Array.Extra.map2 updateDayWithHours model.days modelHours.days, startDate = modelHours.startDate }
 
 
-decoderWork : Decode.Decoder ModelWork
-decoderWork =
-    Decode.map2 ModelWork
-        (Decode.field "days" (Decode.array dayDecoderWork))
+decoderHours : Decode.Decoder ModelHours
+decoderHours =
+    Decode.map2 ModelHours
+        (Decode.field "days" (Decode.array dayDecoderHours))
         (Decode.maybe <| Decode.map Date.fromRataDie <| Decode.field "startDate" Decode.int)
 
 
-dayDecoderWork : Decode.Decoder DayWork
-dayDecoderWork =
-    Decode.map DayWork
+dayDecoderHours : Decode.Decoder DayHours
+dayDecoderHours =
+    Decode.map DayHours
         (Decode.field "tasks" (Decode.array taskDecoder))
