@@ -3,13 +3,14 @@ port module Main exposing (..)
 import Array exposing (Array)
 import Array.Extra
 import Browser
+import Browser.Events exposing (onKeyDown)
 import Date exposing (Date)
 import File exposing (File)
 import File.Download as Download
 import File.Select as Select
 import Html exposing (Html, button, div, input, text, textarea, time)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onClick, onInput)
+import Html.Events exposing (keyCode, on, onClick, onInput)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Task
@@ -37,6 +38,8 @@ type Msg
     | SetNotes String
     | SetStartTime DayIndex TaskIndex String
     | SetStopTime DayIndex TaskIndex String
+    | KeyDownStartTime DayIndex TaskIndex Int
+    | KeyDownStopTime DayIndex TaskIndex Int
     | SaveHours
     | LoadHours
     | LoadedHours File
@@ -217,6 +220,11 @@ viewDay startDate requiredMinutes dayIndex day =
         ]
 
 
+onKey : (Int -> msg) -> Html.Attribute msg
+onKey tagger =
+    on "keyup" (Decode.map tagger keyCode)
+
+
 viewTask : DayIndex -> TaskIndex -> Task -> Html Msg
 viewTask dayIndex taskIndex task =
     div [ class "task" ]
@@ -251,6 +259,7 @@ viewTask dayIndex taskIndex task =
 
                     Nothing ->
                         value invalidTimeString
+                , onKey (KeyDownStartTime dayIndex taskIndex)
                 , onInput (SetStartTime dayIndex taskIndex)
                 ]
                 []
@@ -263,6 +272,7 @@ viewTask dayIndex taskIndex task =
 
                     Nothing ->
                         value invalidTimeString
+                , onKey (KeyDownStopTime dayIndex taskIndex)
                 , onInput (SetStopTime dayIndex taskIndex)
                 ]
                 []
@@ -380,13 +390,9 @@ update msg model =
                 setStartTime task =
                     { task | startTime = stringToMinutes startTime }
 
-                updateTask : Task -> Array Task
-                updateTask task =
-                    adaptToLunch (setStartTime task)
-
                 updateDay : Day -> Day
                 updateDay day =
-                    { day | tasks = replaceAt taskIndex updateTask day.tasks }
+                    { day | tasks = Array.Extra.update taskIndex setStartTime day.tasks }
 
                 newModel : Model
                 newModel =
@@ -402,9 +408,48 @@ update msg model =
                 setStopTime task =
                     { task | stopTime = stringToMinutes stopTime }
 
+                updateDay : Day -> Day
+                updateDay day =
+                    { day | tasks = Array.Extra.update taskIndex setStopTime day.tasks }
+
+                newModel : Model
+                newModel =
+                    { model | days = Array.Extra.update dayIndex updateDay model.days }
+            in
+            ( newModel
+            , setStorage (encode newModel)
+            )
+
+        KeyDownStartTime dayIndex taskIndex key ->
+            if key == 13 then
+                let
                 updateTask : Task -> Array Task
                 updateTask task =
-                    adaptToLunch (setStopTime task)
+                        adaptToLunch task
+
+                    updateDay : Day -> Day
+                    updateDay day =
+                        { day | tasks = replaceAt taskIndex updateTask day.tasks }
+
+                    newModel : Model
+                    newModel =
+                        { model | days = Array.Extra.update dayIndex updateDay model.days }
+                in
+                ( newModel
+                , setStorage (encode newModel)
+                )
+
+            else
+                ( model
+                , setStorage (encode model)
+                )
+
+        KeyDownStopTime dayIndex taskIndex key ->
+            if key == 13 then
+                let
+                    updateTask : Task -> Array Task
+                    updateTask task =
+                        adaptToLunch task
 
                 updateDay : Day -> Day
                 updateDay day =
@@ -417,6 +462,11 @@ update msg model =
             ( newModel
             , setStorage (encode newModel)
             )
+
+            else
+                ( model
+                , Cmd.none
+                )
 
         SaveHours ->
             let
