@@ -14,7 +14,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Task
 
--- TODO: implement update date, multiple notes per day and per total
+
 port setStorage : Encode.Value -> Cmd msg
 
 
@@ -42,12 +42,13 @@ type Msg
     | LoadedHours File
     | ParsedHours String
     | ClearHours
-    | ReceiveDate Date
+    | ClearHours1 Date
     | SaveNotes
     | LoadNotes
     | LoadedNotes File
     | ParsedNotes String
     | UpdateDate
+    | UpdateDate1 Date
 
 
 
@@ -100,7 +101,7 @@ init flags =
               , startDate = Nothing
               , notes = ""
               }
-            , Task.perform ReceiveDate Date.today
+            , Task.perform ClearHours1 Date.today
             )
 
 
@@ -460,10 +461,10 @@ update msg model =
 
         ClearHours ->
             ( model
-            , Task.perform ReceiveDate Date.today
+            , Task.perform ClearHours1 Date.today
             )
 
-        ReceiveDate today ->
+        ClearHours1 today ->
             let
                 previousMonday =
                     Date.floor Date.Monday today
@@ -521,7 +522,19 @@ update msg model =
 
         UpdateDate ->
             ( model
-            , setStorage (encode model)
+            , Task.perform UpdateDate1 Date.today
+            )
+
+        UpdateDate1 today ->
+            let
+                previousMonday =
+                    Date.floor Date.Monday today
+
+                newModel =
+                    { model | startDate = Just previousMonday }
+            in
+            ( newModel
+            , setStorage (encode newModel)
             )
 
 
