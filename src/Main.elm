@@ -470,10 +470,7 @@ update msg model =
                     Date.floor Date.Monday today
 
                 newModel =
-                    { days = emptyWeek
-                    , startDate = Just previousMonday
-                    , notes = ""
-                    }
+                    updateModelWithHours model (emptyModelHours previousMonday)
             in
             ( newModel
             , setStorage (encode newModel)
@@ -920,6 +917,13 @@ type alias ModelHours =
 
 type alias DayHours =
     { tasks : Array Task
+    }
+
+
+emptyModelHours : Date -> ModelHours
+emptyModelHours date =
+    { days = Array.repeat 5 { tasks = Array.empty }
+    , startDate = Just date
     }
 
 
