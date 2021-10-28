@@ -117,8 +117,13 @@ emptyTask : Maybe TimeInMinutes -> Task
 emptyTask startTime =
     { project = ""
     , comment = ""
-    , startTime = startTime
-    , stopTime = Nothing
+    , startTime =
+        case startTime of
+            Just _ ->
+                startTime
+            Nothing ->
+                Just 0
+    , stopTime = Just 0
     }
 
 
@@ -423,8 +428,8 @@ update msg model =
         KeyDownStartTime dayIndex taskIndex key ->
             if key == 13 then
                 let
-                updateTask : Task -> Array Task
-                updateTask task =
+                    updateTask : Task -> Array Task
+                    updateTask task =
                         adaptToLunch task
 
                     updateDay : Day -> Day
@@ -451,17 +456,17 @@ update msg model =
                     updateTask task =
                         adaptToLunch task
 
-                updateDay : Day -> Day
-                updateDay day =
-                    { day | tasks = replaceAt taskIndex updateTask day.tasks }
+                    updateDay : Day -> Day
+                    updateDay day =
+                        { day | tasks = replaceAt taskIndex updateTask day.tasks }
 
-                newModel : Model
-                newModel =
-                    { model | days = Array.Extra.update dayIndex updateDay model.days }
-            in
-            ( newModel
-            , setStorage (encode newModel)
-            )
+                    newModel : Model
+                    newModel =
+                        { model | days = Array.Extra.update dayIndex updateDay model.days }
+                in
+                ( newModel
+                , setStorage (encode newModel)
+                )
 
             else
                 ( model
