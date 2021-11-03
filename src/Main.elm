@@ -3,7 +3,6 @@ port module Main exposing (..)
 import Array exposing (Array)
 import Array.Extra
 import Browser
-import Browser.Events exposing (onKeyDown)
 import Date exposing (Date)
 import File exposing (File)
 import File.Download as Download
@@ -117,13 +116,8 @@ emptyTask : Maybe TimeInMinutes -> Task
 emptyTask startTime =
     { project = ""
     , comment = ""
-    , startTime =
-        case startTime of
-            Just _ ->
-                startTime
-            Nothing ->
-                Just 0
-    , stopTime = Just 0
+    , startTime = startTime
+    , stopTime = Nothing
     }
 
 
@@ -232,6 +226,23 @@ onKey tagger =
 
 viewTask : DayIndex -> TaskIndex -> Task -> Html Msg
 viewTask dayIndex taskIndex task =
+    let
+        startTimeValue =
+            case task.startTime of
+                Just time ->
+                    [ value (minutesToString time) ]
+
+                Nothing ->
+                    []
+
+        stopTimeValue =
+            case task.stopTime of
+                Just time ->
+                    [ value (minutesToString time) ]
+
+                Nothing ->
+                    []
+    in
     div [ class "task" ]
         [ div [ class "top_row" ]
             [ input
@@ -256,30 +267,22 @@ viewTask dayIndex taskIndex task =
             ]
         , div [ class "bottom_row" ]
             [ input
-                [ class "start_time"
-                , type_ "time"
-                , case task.startTime of
-                    Just time ->
-                        value (minutesToString time)
-
-                    Nothing ->
-                        value invalidTimeString
-                , onKey (KeyDownStartTime dayIndex taskIndex)
-                , onInput (SetStartTime dayIndex taskIndex)
-                ]
+                ([ class "start_time"
+                 , type_ "time"
+                 , onKey (KeyDownStartTime dayIndex taskIndex)
+                 , onInput (SetStartTime dayIndex taskIndex)
+                 ]
+                    ++ startTimeValue
+                )
                 []
             , input
-                [ class "stop_time"
-                , type_ "time"
-                , case task.stopTime of
-                    Just time ->
-                        value (minutesToString time)
-
-                    Nothing ->
-                        value invalidTimeString
-                , onKey (KeyDownStopTime dayIndex taskIndex)
-                , onInput (SetStopTime dayIndex taskIndex)
-                ]
+                ([ class "stop_time"
+                 , type_ "time"
+                 , onKey (KeyDownStopTime dayIndex taskIndex)
+                 , onInput (SetStopTime dayIndex taskIndex)
+                 ]
+                    ++ stopTimeValue
+                )
                 []
             ]
         ]
