@@ -295,6 +295,17 @@ viewTask dayIndex taskIndex task =
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
+    let
+        updateAndSave newModel =
+            ( newModel
+            , setStorage (encode newModel)
+            )
+
+        doNothing =
+            ( model
+            , Cmd.none
+            )
+    in
     case msg of
         AddTask dayIndex ->
             let
@@ -315,9 +326,7 @@ update msg model =
                 newModel =
                     { model | days = Array.Extra.update dayIndex updateDay model.days }
             in
-            ( newModel
-            , setStorage (encode newModel)
-            )
+            updateAndSave newModel
 
         RemoveTask dayIndex taskIndex ->
             let
@@ -329,9 +338,7 @@ update msg model =
                 newModel =
                     { model | days = Array.Extra.update dayIndex removeTask model.days }
             in
-            ( newModel
-            , setStorage (encode newModel)
-            )
+            updateAndSave newModel
 
         SetProject dayIndex taskIndex project ->
             let
@@ -347,9 +354,7 @@ update msg model =
                 newModel =
                     { model | days = Array.Extra.update dayIndex updateDay model.days }
             in
-            ( newModel
-            , setStorage (encode newModel)
-            )
+            updateAndSave newModel
 
         SetComment dayIndex taskIndex comment ->
             let
@@ -365,9 +370,7 @@ update msg model =
                 newModel =
                     { model | days = Array.Extra.update dayIndex updateDay model.days }
             in
-            ( newModel
-            , setStorage (encode newModel)
-            )
+            updateAndSave newModel
 
         SetDayNotes dayIndex notes ->
             let
@@ -379,9 +382,7 @@ update msg model =
                 newModel =
                     { model | days = Array.Extra.update dayIndex updateDay model.days }
             in
-            ( newModel
-            , setStorage (encode newModel)
-            )
+            updateAndSave newModel
 
         SetNotes notes ->
             let
@@ -389,9 +390,7 @@ update msg model =
                 newModel =
                     { model | notes = notes }
             in
-            ( newModel
-            , setStorage (encode newModel)
-            )
+            updateAndSave newModel
 
         SetStartTime dayIndex taskIndex startTime ->
             let
@@ -407,9 +406,7 @@ update msg model =
                 newModel =
                     { model | days = Array.Extra.update dayIndex updateDay model.days }
             in
-            ( newModel
-            , setStorage (encode newModel)
-            )
+            updateAndSave newModel
 
         SetStopTime dayIndex taskIndex stopTime ->
             let
@@ -425,9 +422,7 @@ update msg model =
                 newModel =
                     { model | days = Array.Extra.update dayIndex updateDay model.days }
             in
-            ( newModel
-            , setStorage (encode newModel)
-            )
+            updateAndSave newModel
 
         KeyDownStartTime dayIndex taskIndex key ->
             if key == 13 then
@@ -444,14 +439,10 @@ update msg model =
                     newModel =
                         { model | days = Array.Extra.update dayIndex updateDay model.days }
                 in
-                ( newModel
-                , setStorage (encode newModel)
-                )
+                updateAndSave newModel
 
             else
-                ( model
-                , setStorage (encode model)
-                )
+                doNothing
 
         KeyDownStopTime dayIndex taskIndex key ->
             if key == 13 then
@@ -468,14 +459,10 @@ update msg model =
                     newModel =
                         { model | days = Array.Extra.update dayIndex updateDay model.days }
                 in
-                ( newModel
-                , setStorage (encode newModel)
-                )
+                updateAndSave newModel
 
             else
-                ( model
-                , Cmd.none
-                )
+                doNothing
 
         Save hoursOrNotes ->
             let
@@ -538,9 +525,7 @@ update msg model =
                         Notes ->
                             decodeAndUpdate decoderNotes updateModelWithNotes
             in
-            ( newModel
-            , setStorage (encode newModel)
-            )
+            updateAndSave newModel
 
         ClearHours ->
             ( model
@@ -555,9 +540,7 @@ update msg model =
                 newModel =
                     updateModelWithHours model (emptyModelHours previousMonday)
             in
-            ( newModel
-            , setStorage (encode newModel)
-            )
+            updateAndSave newModel
 
         UpdateDate ->
             ( model
@@ -572,9 +555,7 @@ update msg model =
                 newModel =
                     { model | startDate = Just previousMonday }
             in
-            ( newModel
-            , setStorage (encode newModel)
-            )
+            updateAndSave newModel
 
 
 
