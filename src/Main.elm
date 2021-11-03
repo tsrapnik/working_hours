@@ -28,6 +28,11 @@ main =
         }
 
 
+type HoursOrNotes
+    = Hours
+    | Notes
+
+
 type Msg
     = AddTask DayIndex
     | RemoveTask DayIndex TaskIndex
@@ -39,16 +44,12 @@ type Msg
     | SetStopTime DayIndex TaskIndex String
     | KeyDownStartTime DayIndex TaskIndex Int
     | KeyDownStopTime DayIndex TaskIndex Int
-    | SaveHours
-    | LoadHours
-    | LoadedHours File
-    | ParsedHours String
+    | Save HoursOrNotes
+    | Load HoursOrNotes
+    | Loaded HoursOrNotes File
+    | Parsed HoursOrNotes String
     | ClearHours
     | ClearHours1 Date
-    | SaveNotes
-    | LoadNotes
-    | LoadedNotes File
-    | ParsedNotes String
     | UpdateDate
     | UpdateDate1 Date
 
@@ -168,11 +169,11 @@ view model =
                 (Array.indexedMap (dayDataToHtml model.startDate) daysData)
             )
         , div [ class "loadSave" ]
-            [ button [ class "load_hours", onClick LoadHours ] [ text "load hours" ]
-            , button [ class "save_hours", onClick SaveHours ] [ text "save hours" ]
+            [ button [ class "load_hours", onClick (Load Hours) ] [ text "load hours" ]
+            , button [ class "save_hours", onClick (Save Hours) ] [ text "save hours" ]
             , button [ class "clear_hours", onClick ClearHours ] [ text "clear hours" ]
-            , button [ class "load_notes", onClick LoadNotes ] [ text "load notes" ]
-            , button [ class "save_notes", onClick SaveNotes ] [ text "save notes" ]
+            , button [ class "load_notes", onClick (Load Notes) ] [ text "load notes" ]
+            , button [ class "save_notes", onClick (Save Notes) ] [ text "save notes" ]
             , button [ class "update_date", onClick UpdateDate ] [ text "update date" ]
             ]
         , div []
@@ -476,7 +477,7 @@ update msg model =
                 , Cmd.none
                 )
 
-        SaveHours ->
+        Save hoursOrNotes ->
             let
                 yearAndWeek =
                     case model.startDate of
@@ -486,32 +487,56 @@ update msg model =
                         Nothing ->
                             ""
 
+                fileNamePrefix =
+                    case hoursOrNotes of
+                        Hours ->
+                            "hours_"
+
+                        Notes ->
+                            "notes_"
+
                 fileName =
-                    "hours_" ++ yearAndWeek ++ ".json"
+                    fileNamePrefix ++ yearAndWeek ++ ".json"
+
+                localEncoder =
+                    case hoursOrNotes of
+                        Hours ->
+                            encodeHours
+
+                        Notes ->
+                            encodeNotes
             in
             ( model
-            , Download.string fileName "application/json" (Encode.encode 4 (encodeHours model))
+            , Download.string fileName "application/json" (Encode.encode 4 (localEncoder model))
             )
 
-        LoadHours ->
+        Load hoursOrNotes ->
             ( model
-            , Select.file [ "application/json" ] LoadedHours
+            , Select.file [ "application/json" ] (Loaded hoursOrNotes)
             )
 
-        LoadedHours file ->
+        Loaded hoursOrNotes file ->
             ( model
-            , Task.perform ParsedHours (File.toString file)
+            , Task.perform (Parsed hoursOrNotes) (File.toString file)
             )
 
-        ParsedHours string ->
+        Parsed hoursOrNotes string ->
             let
-                newModel =
-                    case Decode.decodeString decoderHours string of
-                        Ok decodedModelHours ->
-                            updateModelWithHours model decodedModelHours
+                decodeAndUpdate localDecoder updater =
+                    case Decode.decodeString localDecoder string of
+                        Ok decodedModel ->
+                            updater model decodedModel
 
                         Err _ ->
                             model
+
+                newModel =
+                    case hoursOrNotes of
+                        Hours ->
+                            decodeAndUpdate decoderHours updateModelWithHours
+
+                        Notes ->
+                            decodeAndUpdate decoderNotes updateModelWithNotes
             in
             ( newModel
             , setStorage (encode newModel)
@@ -529,47 +554,6 @@ update msg model =
 
                 newModel =
                     updateModelWithHours model (emptyModelHours previousMonday)
-            in
-            ( newModel
-            , setStorage (encode newModel)
-            )
-
-        SaveNotes ->
-            let
-                yearAndWeek =
-                    case model.startDate of
-                        Just date ->
-                            Date.format "YYYY_w" date
-
-                        Nothing ->
-                            ""
-
-                fileName =
-                    "notes_" ++ yearAndWeek ++ ".json"
-            in
-            ( model
-            , Download.string fileName "application/json" (Encode.encode 4 (encodeNotes model))
-            )
-
-        LoadNotes ->
-            ( model
-            , Select.file [ "application/json" ] LoadedNotes
-            )
-
-        LoadedNotes file ->
-            ( model
-            , Task.perform ParsedNotes (File.toString file)
-            )
-
-        ParsedNotes string ->
-            let
-                newModel =
-                    case Decode.decodeString decoderNotes string of
-                        Ok decodedModelNotes ->
-                            updateModelWithNotes model decodedModelNotes
-
-                        Err _ ->
-                            model
             in
             ( newModel
             , setStorage (encode newModel)
