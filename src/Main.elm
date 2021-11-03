@@ -33,6 +33,20 @@ type HoursOrNotes
     | Notes
 
 
+
+-- task requiring todays date
+
+
+type TodayTask
+    = ClearHours
+    | UpdateDate
+
+
+type DateTaskStep
+    = GetDate
+    | UseDate Date
+
+
 type Msg
     = AddTask DayIndex
     | RemoveTask DayIndex TaskIndex
@@ -48,10 +62,7 @@ type Msg
     | Load HoursOrNotes
     | Loaded HoursOrNotes File
     | Parsed HoursOrNotes String
-    | ClearHours
-    | ClearHours1 Date
-    | UpdateDate
-    | UpdateDate1 Date
+    | GetTodayAnd TodayTask DateTaskStep
 
 
 
@@ -104,7 +115,7 @@ init flags =
               , startDate = Nothing
               , notes = ""
               }
-            , Task.perform ClearHours1 Date.today
+            , Task.perform (\date -> GetTodayAnd ClearHours (UseDate date)) Date.today
             )
 
 
@@ -171,10 +182,10 @@ view model =
         , div [ class "loadSave" ]
             [ button [ class "load_hours", onClick (Load Hours) ] [ text "load hours" ]
             , button [ class "save_hours", onClick (Save Hours) ] [ text "save hours" ]
-            , button [ class "clear_hours", onClick ClearHours ] [ text "clear hours" ]
+            , button [ class "clear_hours", onClick (GetTodayAnd ClearHours GetDate) ] [ text "clear hours" ]
             , button [ class "load_notes", onClick (Load Notes) ] [ text "load notes" ]
             , button [ class "save_notes", onClick (Save Notes) ] [ text "save notes" ]
-            , button [ class "update_date", onClick UpdateDate ] [ text "update date" ]
+            , button [ class "update_date", onClick (GetTodayAnd UpdateDate GetDate) ] [ text "update date" ]
             ]
         , div []
             [ textarea
@@ -527,35 +538,27 @@ update msg model =
             in
             updateAndSave newModel
 
-        ClearHours ->
-            ( model
-            , Task.perform ClearHours1 Date.today
-            )
+        GetTodayAnd todayTask dateTaskStep ->
+            case dateTaskStep of
+                GetDate ->
+                    ( model
+                    , Task.perform (\date -> GetTodayAnd ClearHours (UseDate date)) Date.today
+                    )
 
-        ClearHours1 today ->
-            let
-                previousMonday =
-                    Date.floor Date.Monday today
+                UseDate today ->
+                    let
+                        previousMonday =
+                            Date.floor Date.Monday today
 
-                newModel =
-                    updateModelWithHours model (emptyModelHours previousMonday)
-            in
-            updateAndSave newModel
+                        newModel =
+                            case todayTask of
+                                ClearHours ->
+                                    updateModelWithHours model (emptyModelHours previousMonday)
 
-        UpdateDate ->
-            ( model
-            , Task.perform UpdateDate1 Date.today
-            )
-
-        UpdateDate1 today ->
-            let
-                previousMonday =
-                    Date.floor Date.Monday today
-
-                newModel =
-                    { model | startDate = Just previousMonday }
-            in
-            updateAndSave newModel
+                                UpdateDate ->
+                                    { model | startDate = Just previousMonday }
+                    in
+                    updateAndSave newModel
 
 
 
