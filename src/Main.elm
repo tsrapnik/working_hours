@@ -37,32 +37,40 @@ type HoursOrNotes
 -- task requiring todays date
 
 
-type TodayTask
+type DateMsg
     = ClearHours
     | UpdateDate
 
 
-type DateTaskStep
+type DateMsgStep
     = GetDate
     | UseDate Date
 
 
+type DayMsg
+    = SetDayNotes String
+    | AddTask
+    | ForTaskXDo TaskIndex TaskMsg
+
+
+type TaskMsg
+    = RemoveTask
+    | SetProject String
+    | SetComment String
+    | SetStartTime String
+    | SetStopTime String
+    | KeyDownStartTime Int
+    | KeyDownStopTime Int
+
+
 type Msg
-    = AddTask DayIndex
-    | RemoveTask DayIndex TaskIndex
-    | SetProject DayIndex TaskIndex String
-    | SetComment DayIndex TaskIndex String
-    | SetDayNotes DayIndex String
+    = ForDayXDo DayIndex DayMsg
     | SetNotes String
-    | SetStartTime DayIndex TaskIndex String
-    | SetStopTime DayIndex TaskIndex String
-    | KeyDownStartTime DayIndex TaskIndex Int
-    | KeyDownStopTime DayIndex TaskIndex Int
     | Save HoursOrNotes
     | Load HoursOrNotes
     | Loaded HoursOrNotes File
     | Parsed HoursOrNotes String
-    | GetTodayAnd TodayTask DateTaskStep
+    | GetDateAnd DateMsg DateMsgStep
 
 
 
@@ -115,7 +123,7 @@ init flags =
               , startDate = Nothing
               , notes = ""
               }
-            , Task.perform (\date -> GetTodayAnd ClearHours (UseDate date)) Date.today
+            , Task.perform (\date -> GetDateAnd ClearHours (UseDate date)) Date.today
             )
 
 
@@ -182,10 +190,10 @@ view model =
         , div [ class "loadSave" ]
             [ button [ class "load_hours", onClick (Load Hours) ] [ text "load hours" ]
             , button [ class "save_hours", onClick (Save Hours) ] [ text "save hours" ]
-            , button [ class "clear_hours", onClick (GetTodayAnd ClearHours GetDate) ] [ text "clear hours" ]
+            , button [ class "clear_hours", onClick (GetDateAnd ClearHours GetDate) ] [ text "clear hours" ]
             , button [ class "load_notes", onClick (Load Notes) ] [ text "load notes" ]
             , button [ class "save_notes", onClick (Save Notes) ] [ text "save notes" ]
-            , button [ class "update_date", onClick (GetTodayAnd UpdateDate GetDate) ] [ text "update date" ]
+            , button [ class "update_date", onClick (GetDateAnd UpdateDate GetDate) ] [ text "update date" ]
             ]
         , div []
             [ textarea
@@ -220,12 +228,12 @@ viewDay startDate requiredMinutes dayIndex day =
 
             Nothing ->
                 time [ class "required_minutes_white" ] [ text invalidTimeString ]
-        , button [ onClick (AddTask dayIndex) ] [ text "add task" ]
+        , button [ onClick (ForDayXDo dayIndex AddTask) ] [ text "add task" ]
         , textarea
             [ class "day_notes"
             , rows 10
             , value day.notes
-            , onInput (SetDayNotes dayIndex)
+            , onInput (\notes -> ForDayXDo dayIndex (SetDayNotes notes))
             ]
             []
         ]
@@ -261,19 +269,19 @@ viewTask dayIndex taskIndex task =
                 [ class "project"
                 , type_ "text"
                 , value task.project
-                , onInput (SetProject dayIndex taskIndex)
+                , onInput (\project -> ForDayXDo dayIndex (ForTaskXDo taskIndex (SetProject project)))
                 ]
                 []
             , input
                 [ class "comment"
                 , type_ "text"
                 , value task.comment
-                , onInput (SetComment dayIndex taskIndex)
+                , onInput (\comment -> ForDayXDo dayIndex (ForTaskXDo taskIndex (SetComment comment)))
                 ]
                 []
             , button
                 [ class "close_button"
-                , onClick (RemoveTask dayIndex taskIndex)
+                , onClick (ForDayXDo dayIndex (ForTaskXDo taskIndex RemoveTask))
                 ]
                 [ text "x" ]
             ]
@@ -281,8 +289,8 @@ viewTask dayIndex taskIndex task =
             [ input
                 ([ class "start_time"
                  , type_ "time"
-                 , onKey (KeyDownStartTime dayIndex taskIndex)
-                 , onInput (SetStartTime dayIndex taskIndex)
+                 , onKey (\key -> ForDayXDo dayIndex (ForTaskXDo taskIndex (KeyDownStartTime key)))
+                 , onInput (\startTime -> ForDayXDo dayIndex (ForTaskXDo taskIndex (SetStartTime startTime)))
                  ]
                     ++ startTimeValue
                 )
@@ -290,8 +298,8 @@ viewTask dayIndex taskIndex task =
             , input
                 ([ class "stop_time"
                  , type_ "time"
-                 , onKey (KeyDownStopTime dayIndex taskIndex)
-                 , onInput (SetStopTime dayIndex taskIndex)
+                 , onKey (\key -> ForDayXDo dayIndex (ForTaskXDo taskIndex (KeyDownStopTime key)))
+                 , onInput (\stopTime -> ForDayXDo dayIndex (ForTaskXDo taskIndex (SetStopTime stopTime)))
                  ]
                     ++ stopTimeValue
                 )
@@ -304,6 +312,63 @@ viewTask dayIndex taskIndex task =
 {- update -}
 
 
+{-| Returns a list of tasks in stead of just one, since certain commands return two tasks (if a task was split) or none (if a task was removed).
+-}
+updateTask : TaskMsg -> Task -> Array Task
+updateTask msg task =
+    case msg of
+        RemoveTask ->
+            Array.empty
+
+        SetProject project ->
+            Array.fromList [ { task | project = project } ]
+
+        SetComment comment ->
+            Array.fromList [ { task | comment = comment } ]
+
+        SetStartTime startTime ->
+            Array.fromList [ { task | startTime = stringToMinutes startTime } ]
+
+        SetStopTime stopTime ->
+            Array.fromList [ { task | stopTime = stringToMinutes stopTime } ]
+
+        KeyDownStartTime key ->
+            if key == 13 then
+                adaptToLunch task
+
+            else
+                Array.fromList [ task ]
+
+        KeyDownStopTime key ->
+            if key == 13 then
+                adaptToLunch task
+
+            else
+                Array.fromList [ task ]
+
+
+updateDay : DayMsg -> Day -> Day
+updateDay msg day =
+    case msg of
+        SetDayNotes notes ->
+            { day | notes = notes }
+
+        AddTask ->
+            let
+                startTime =
+                    case Array.get (Array.length day.tasks - 1) day.tasks of
+                        Just previousTask ->
+                            previousTask.stopTime
+
+                        Nothing ->
+                            Maybe.Nothing
+            in
+            { day | tasks = Array.push (emptyTask startTime) day.tasks }
+
+        ForTaskXDo taskIndex taskMsg ->
+            { day | tasks = replaceAt taskIndex (updateTask taskMsg) day.tasks }
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     let
@@ -311,87 +376,13 @@ update msg model =
             ( newModel
             , setStorage (encode newModel)
             )
-
-        doNothing =
-            ( model
-            , Cmd.none
-            )
     in
     case msg of
-        AddTask dayIndex ->
+        ForDayXDo dayIndex dayMsg ->
             let
-                addTask : Day -> Maybe TimeInMinutes -> Day
-                addTask day startTime =
-                    { day | tasks = Array.push (emptyTask startTime) day.tasks }
-
-                updateDay : Day -> Day
-                updateDay day =
-                    case Array.get (Array.length day.tasks - 1) day.tasks of
-                        Just previousTask ->
-                            addTask day previousTask.stopTime
-
-                        Nothing ->
-                            addTask day Maybe.Nothing
-
                 newModel : Model
                 newModel =
-                    { model | days = Array.Extra.update dayIndex updateDay model.days }
-            in
-            updateAndSave newModel
-
-        RemoveTask dayIndex taskIndex ->
-            let
-                removeTask : Day -> Day
-                removeTask day =
-                    { day | tasks = Array.Extra.removeAt taskIndex day.tasks }
-
-                newModel : Model
-                newModel =
-                    { model | days = Array.Extra.update dayIndex removeTask model.days }
-            in
-            updateAndSave newModel
-
-        SetProject dayIndex taskIndex project ->
-            let
-                setProject : Task -> Task
-                setProject task =
-                    { task | project = project }
-
-                updateDay : Day -> Day
-                updateDay day =
-                    { day | tasks = Array.Extra.update taskIndex setProject day.tasks }
-
-                newModel : Model
-                newModel =
-                    { model | days = Array.Extra.update dayIndex updateDay model.days }
-            in
-            updateAndSave newModel
-
-        SetComment dayIndex taskIndex comment ->
-            let
-                setComment : Task -> Task
-                setComment task =
-                    { task | comment = comment }
-
-                updateDay : Day -> Day
-                updateDay day =
-                    { day | tasks = Array.Extra.update taskIndex setComment day.tasks }
-
-                newModel : Model
-                newModel =
-                    { model | days = Array.Extra.update dayIndex updateDay model.days }
-            in
-            updateAndSave newModel
-
-        SetDayNotes dayIndex notes ->
-            let
-                updateDay : Day -> Day
-                updateDay day =
-                    { day | notes = notes }
-
-                newModel : Model
-                newModel =
-                    { model | days = Array.Extra.update dayIndex updateDay model.days }
+                    { model | days = Array.Extra.update dayIndex (updateDay dayMsg) model.days }
             in
             updateAndSave newModel
 
@@ -402,78 +393,6 @@ update msg model =
                     { model | notes = notes }
             in
             updateAndSave newModel
-
-        SetStartTime dayIndex taskIndex startTime ->
-            let
-                setStartTime : Task -> Task
-                setStartTime task =
-                    { task | startTime = stringToMinutes startTime }
-
-                updateDay : Day -> Day
-                updateDay day =
-                    { day | tasks = Array.Extra.update taskIndex setStartTime day.tasks }
-
-                newModel : Model
-                newModel =
-                    { model | days = Array.Extra.update dayIndex updateDay model.days }
-            in
-            updateAndSave newModel
-
-        SetStopTime dayIndex taskIndex stopTime ->
-            let
-                setStopTime : Task -> Task
-                setStopTime task =
-                    { task | stopTime = stringToMinutes stopTime }
-
-                updateDay : Day -> Day
-                updateDay day =
-                    { day | tasks = Array.Extra.update taskIndex setStopTime day.tasks }
-
-                newModel : Model
-                newModel =
-                    { model | days = Array.Extra.update dayIndex updateDay model.days }
-            in
-            updateAndSave newModel
-
-        KeyDownStartTime dayIndex taskIndex key ->
-            if key == 13 then
-                let
-                    updateTask : Task -> Array Task
-                    updateTask task =
-                        adaptToLunch task
-
-                    updateDay : Day -> Day
-                    updateDay day =
-                        { day | tasks = replaceAt taskIndex updateTask day.tasks }
-
-                    newModel : Model
-                    newModel =
-                        { model | days = Array.Extra.update dayIndex updateDay model.days }
-                in
-                updateAndSave newModel
-
-            else
-                doNothing
-
-        KeyDownStopTime dayIndex taskIndex key ->
-            if key == 13 then
-                let
-                    updateTask : Task -> Array Task
-                    updateTask task =
-                        adaptToLunch task
-
-                    updateDay : Day -> Day
-                    updateDay day =
-                        { day | tasks = replaceAt taskIndex updateTask day.tasks }
-
-                    newModel : Model
-                    newModel =
-                        { model | days = Array.Extra.update dayIndex updateDay model.days }
-                in
-                updateAndSave newModel
-
-            else
-                doNothing
 
         Save hoursOrNotes ->
             let
@@ -538,11 +457,11 @@ update msg model =
             in
             updateAndSave newModel
 
-        GetTodayAnd todayTask dateTaskStep ->
+        GetDateAnd todayTask dateTaskStep ->
             case dateTaskStep of
                 GetDate ->
                     ( model
-                    , Task.perform (\date -> GetTodayAnd ClearHours (UseDate date)) Date.today
+                    , Task.perform (\date -> GetDateAnd ClearHours (UseDate date)) Date.today
                     )
 
                 UseDate today ->
