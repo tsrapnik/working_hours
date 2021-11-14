@@ -71,7 +71,7 @@ type Msg
     | Loaded HoursOrNotes File
     | Parsed HoursOrNotes String
     | GetDateAnd DateMsg DateMsgStep
- 
+
 
 
 {- model -}
@@ -457,8 +457,8 @@ update msg model =
             in
             updateAndSave newModel
 
-        GetDateAnd todayTask dateTaskStep ->
-            case dateTaskStep of
+        GetDateAnd dateMsg dateMsgStep ->
+            case dateMsgStep of
                 GetDate ->
                     ( model
                     , Task.perform (\date -> GetDateAnd ClearHours (UseDate date)) Date.today
@@ -470,7 +470,7 @@ update msg model =
                             Date.floor Date.Monday today
 
                         newModel =
-                            case todayTask of
+                            case dateMsg of
                                 ClearHours ->
                                     updateModelWithHours model (emptyModelHours previousMonday)
 
