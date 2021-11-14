@@ -461,7 +461,7 @@ update msg model =
             case dateMsgStep of
                 GetDate ->
                     ( model
-                    , Task.perform (\date -> GetDateAnd ClearHours (UseDate date)) Date.today
+                    , Task.perform (\date -> GetDateAnd dateMsg (UseDate date)) Date.today
                     )
 
                 UseDate today ->
