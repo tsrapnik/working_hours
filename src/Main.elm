@@ -71,7 +71,7 @@ type Msg
     | Loaded HoursOrNotes File
     | Parsed HoursOrNotes String
     | GetDateAnd DateMsg DateMsgStep
-
+ 
 
 
 {- model -}
