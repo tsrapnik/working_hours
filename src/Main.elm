@@ -33,18 +33,20 @@ type HoursOrNotes
     | Notes
 
 
-
--- task requiring todays date
-
-
 type DateMsg
     = ClearHours
     | UpdateDate
 
 
 type DateMsgStep
-    = GetDate
-    | UseDate Date
+    = GetDateStep
+    | UseDateStep Date
+
+
+type LoadMsgStep
+    = LoadStep
+    | LoadedStep File
+    | ParsedStep String
 
 
 type DayMsg
@@ -67,9 +69,7 @@ type Msg
     = ForDayXDo DayIndex DayMsg
     | SetNotes String
     | Save HoursOrNotes
-    | Load HoursOrNotes
-    | Loaded HoursOrNotes File
-    | Parsed HoursOrNotes String
+    | Load HoursOrNotes LoadMsgStep
     | GetDateAnd DateMsg DateMsgStep
 
 
@@ -123,7 +123,7 @@ init flags =
               , startDate = Nothing
               , notes = ""
               }
-            , Task.perform (\date -> GetDateAnd ClearHours (UseDate date)) Date.today
+            , Task.perform (\date -> GetDateAnd ClearHours (UseDateStep date)) Date.today
             )
 
 
@@ -188,12 +188,12 @@ view model =
                 (Array.indexedMap (dayDataToHtml model.startDate) daysData)
             )
         , div [ class "loadSave" ]
-            [ button [ class "load_hours", onClick (Load Hours) ] [ text "load hours" ]
+            [ button [ class "load_hours", onClick (Load Hours LoadStep) ] [ text "load hours" ]
             , button [ class "save_hours", onClick (Save Hours) ] [ text "save hours" ]
-            , button [ class "clear_hours", onClick (GetDateAnd ClearHours GetDate) ] [ text "clear hours" ]
-            , button [ class "load_notes", onClick (Load Notes) ] [ text "load notes" ]
+            , button [ class "clear_hours", onClick (GetDateAnd ClearHours GetDateStep) ] [ text "clear hours" ]
+            , button [ class "load_notes", onClick (Load Notes LoadStep) ] [ text "load notes" ]
             , button [ class "save_notes", onClick (Save Notes) ] [ text "save notes" ]
-            , button [ class "update_date", onClick (GetDateAnd UpdateDate GetDate) ] [ text "update date" ]
+            , button [ class "update_date", onClick (GetDateAnd UpdateDate GetDateStep) ] [ text "update date" ]
             ]
         , div []
             [ textarea
@@ -427,44 +427,46 @@ update msg model =
             , Download.string fileName "application/json" (Encode.encode 4 (localEncoder model))
             )
 
-        Load hoursOrNotes ->
-            ( model
-            , Select.file [ "application/json" ] (Loaded hoursOrNotes)
-            )
+        Load hoursOrNotes step ->
+            case step of
+                LoadStep ->
+                    ( model
+                    , Select.file [ "application/json" ] (\file -> Load hoursOrNotes (LoadedStep file))
+                    )
 
-        Loaded hoursOrNotes file ->
-            ( model
-            , Task.perform (Parsed hoursOrNotes) (File.toString file)
-            )
+                LoadedStep file ->
+                    ( model
+                    , Task.perform (\string -> Load hoursOrNotes (ParsedStep string)) (File.toString file)
+                    )
 
-        Parsed hoursOrNotes string ->
-            let
-                decodeAndUpdate localDecoder updater =
-                    case Decode.decodeString localDecoder string of
-                        Ok decodedModel ->
-                            updater model decodedModel
+                ParsedStep string ->
+                    let
+                        decodeAndUpdate localDecoder updater =
+                            case Decode.decodeString localDecoder string of
+                                Ok decodedModel ->
+                                    updater model decodedModel
 
-                        Err _ ->
-                            model
+                                Err _ ->
+                                    model
 
-                newModel =
-                    case hoursOrNotes of
-                        Hours ->
-                            decodeAndUpdate decoderHours updateModelWithHours
+                        newModel =
+                            case hoursOrNotes of
+                                Hours ->
+                                    decodeAndUpdate decoderHours updateModelWithHours
 
-                        Notes ->
-                            decodeAndUpdate decoderNotes updateModelWithNotes
-            in
-            updateAndSave newModel
+                                Notes ->
+                                    decodeAndUpdate decoderNotes updateModelWithNotes
+                    in
+                    updateAndSave newModel
 
         GetDateAnd dateMsg dateMsgStep ->
             case dateMsgStep of
-                GetDate ->
+                GetDateStep ->
                     ( model
-                    , Task.perform (\date -> GetDateAnd dateMsg (UseDate date)) Date.today
+                    , Task.perform (\date -> GetDateAnd dateMsg (UseDateStep date)) Date.today
                     )
 
-                UseDate today ->
+                UseDateStep today ->
                     let
                         previousMonday =
                             Date.floor Date.Monday today
