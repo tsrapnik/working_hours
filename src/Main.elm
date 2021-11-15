@@ -3,10 +3,11 @@ port module Main exposing (..)
 import Array exposing (Array)
 import Array.Extra
 import Browser
+import Chore exposing (DateMsg(..), DateMsgStep(..), HoursOrNotes(..), LoadMsgStep(..), Msg(..))
 import Common exposing (TimeInMinutes)
 import Date exposing (Date)
-import Day exposing (DateMsg(..), DateMsgStep(..), Day, DayHours, DayIndex, DayMsg, DayNotes, HoursOrNotes(..), LoadMsgStep(..), Msg(..))
-import File exposing (File)
+import Day exposing (Day, DayHours, DayNotes)
+import File
 import File.Download as Download
 import File.Select as Select
 import Html exposing (Html, button, div, text, textarea)
@@ -60,7 +61,7 @@ init flags =
 
 emptyWeek : Array Day
 emptyWeek =
-    Array.repeat 5 { tasks = Array.empty, notes = "" }
+    Array.repeat 5 { chores = Array.empty, notes = "" }
 
 
 view : Model -> Html Msg
@@ -319,7 +320,7 @@ type alias ModelHours =
 
 emptyModelHours : Date -> ModelHours
 emptyModelHours date =
-    { days = Array.repeat 5 { tasks = Array.empty }
+    { days = Array.repeat 5 { chores = Array.empty }
     , startDate = Just date
     }
 
