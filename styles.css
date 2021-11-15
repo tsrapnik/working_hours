@@ -82,12 +82,12 @@ button:active {
     background-color: rgba(0, 0, 0, 0.3);
     padding: 4px 0px;
 }
-.tasks {
+.chores {
     display: grid;
     row-gap: 8px;
 }
 
-.task {
+.chore {
     background-color: rgba(255, 255, 255, 0.1);
     display: grid;
     padding: 4px;
@@ -95,40 +95,40 @@ button:active {
     row-gap: 4px;
 }
 
-.task input {
+.chore input {
     color: rgba(255, 255, 255, 0.55);
     background-color: rgba(0, 0, 0, 0.3);
     border:  none;
 }
 
-.task input:hover {
+.chore input:hover {
     background-color: rgba(255, 255, 255, 0.2);
 }
 
-.task .top_row {
+.chore .top_row {
     display: grid;
     grid-template-columns: 1fr 3fr min-content;
     column-gap: 4px;
 }
 
-.task .top_row .project {
+.chore .top_row .project {
     min-width: 30px;
 }
 
-.task .top_row .comment {
+.chore .top_row .comment {
     min-width: 90px;
 }
 
-.task .top_row .close_button {
+.chore .top_row .close_button {
     background-color: rgba(0, 0, 0, 0);
     padding: 0px 4px;
 }
 
-.task .top_row .close_button:hover {
+.chore .top_row .close_button:hover {
     color: rgba(255, 255, 255, 0.3);
 }
 
-.task .bottom_row {
+.chore .bottom_row {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     column-gap: 4px;
