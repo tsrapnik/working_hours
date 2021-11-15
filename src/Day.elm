@@ -2,24 +2,24 @@ module Day exposing
     ( Day
     , DayHours
     , DayIndex
-    , DayMsg
     , DayNotes
+    , Msg
     , dailyWorktime
-    , dayDecoder
-    , dayDecoderHours
-    , dayDecoderNotes
-    , encodeDay
-    , encodeDayHours
-    , encodeDayNotes
-    , updateDay
-    , updateDayWithHours
-    , updateDayWithNotes
-    , viewDay
+    , decoder
+    , decoderHours
+    , decoderNotes
+    , encode
+    , encodeHours
+    , encodeNotes
+    , update
+    , updateWithHours
+    , updateWithNotes
+    , view
     )
 
 import Array exposing (Array)
 import Array.Extra2
-import Chore exposing (Chore, ChoreIndex, ChoreMsg(..))
+import Chore exposing (Chore, emptyChore)
 import Date exposing (Date)
 import Html exposing (Html, button, div, text, textarea, time)
 import Html.Attributes exposing (..)
@@ -29,28 +29,32 @@ import Json.Encode as Encode
 import Time2 exposing (TimeInMinutes)
 
 
-type alias Day =
-    { chores : Array Chore
-    , notes : String
-    }
-
-
-type DayMsg
-    = SetDayNotes String
-    | AddChore
-    | ForChoreXDo ChoreIndex ChoreMsg
+type alias ChoreIndex =
+    Int
 
 
 type alias DayIndex =
     Int
 
 
-viewDay : Maybe Date -> Maybe TimeInMinutes -> DayIndex -> Day -> Html DayMsg
-viewDay startDate requiredMinutes dayIndex day =
+type alias Day =
+    { chores : Array Chore
+    , notes : String
+    }
+
+
+type Msg
+    = SetDayNotes String
+    | AddChore
+    | ForChoreXDo ChoreIndex Chore.Msg
+
+
+view : Maybe Date -> Maybe TimeInMinutes -> DayIndex -> Day -> Html Msg
+view startDate requiredMinutes dayIndex day =
     let
-        choreToHtml : ChoreIndex -> Chore -> Html DayMsg
+        choreToHtml : ChoreIndex -> Chore -> Html Msg
         choreToHtml index chore =
-            Chore.viewChore chore
+            Chore.view chore
                 |> Html.map (ForChoreXDo index)
     in
     div [ class "day" ]
@@ -83,8 +87,8 @@ viewDay startDate requiredMinutes dayIndex day =
         ]
 
 
-updateDay : DayMsg -> Day -> Day
-updateDay msg day =
+update : Msg -> Day -> Day
+update msg day =
     case msg of
         SetDayNotes notes ->
             { day | notes = notes }
@@ -99,28 +103,28 @@ updateDay msg day =
                         Nothing ->
                             Maybe.Nothing
             in
-            { day | chores = Array.push (Chore.emptyChore startTime) day.chores }
+            { day | chores = Array.push (emptyChore startTime) day.chores }
 
         ForChoreXDo choreIndex choreMsg ->
-            { day | chores = Array.Extra2.updateWithArray choreIndex (Chore.updateChore choreMsg) day.chores }
+            { day | chores = Array.Extra2.updateWithArray choreIndex (Chore.update choreMsg) day.chores }
 
 
 
-{- Encode or decode full model. -}
+{- Encode or decode full day. -}
 
 
-encodeDay : Day -> Encode.Value
-encodeDay day =
+encode : Day -> Encode.Value
+encode day =
     Encode.object
-        [ ( "chores", Encode.array Chore.encodeChore day.chores )
+        [ ( "chores", Encode.array Chore.encode day.chores )
         , ( "notes", Encode.string day.notes )
         ]
 
 
-dayDecoder : Decode.Decoder Day
-dayDecoder =
+decoder : Decode.Decoder Day
+decoder =
     Decode.map2 Day
-        (Decode.field "chores" (Decode.array Chore.choreDecoder))
+        (Decode.field "chores" (Decode.array Chore.decoder))
         (Decode.field "notes" Decode.string)
 
 
@@ -133,21 +137,21 @@ type alias DayHours =
     }
 
 
-encodeDayHours : Day -> Encode.Value
-encodeDayHours day =
+encodeHours : Day -> Encode.Value
+encodeHours day =
     Encode.object
-        [ ( "chores", Encode.array Chore.encodeChore day.chores )
+        [ ( "chores", Encode.array Chore.encode day.chores )
         ]
 
 
-dayDecoderHours : Decode.Decoder DayHours
-dayDecoderHours =
+decoderHours : Decode.Decoder DayHours
+decoderHours =
     Decode.map DayHours
-        (Decode.field "chores" (Decode.array Chore.choreDecoder))
+        (Decode.field "chores" (Decode.array Chore.decoder))
 
 
-updateDayWithHours : Day -> DayHours -> Day
-updateDayWithHours day dayHours =
+updateWithHours : Day -> DayHours -> Day
+updateWithHours day dayHours =
     { day | chores = dayHours.chores }
 
 
@@ -159,19 +163,19 @@ type alias DayNotes =
     String
 
 
-encodeDayNotes : Day -> Encode.Value
-encodeDayNotes day =
+encodeNotes : Day -> Encode.Value
+encodeNotes day =
     Encode.object
         [ ( "notes", Encode.string day.notes ) ]
 
 
-dayDecoderNotes : Decode.Decoder DayNotes
-dayDecoderNotes =
+decoderNotes : Decode.Decoder DayNotes
+decoderNotes =
     Decode.field "notes" Decode.string
 
 
-updateDayWithNotes : Day -> DayNotes -> Day
-updateDayWithNotes day dayNotes =
+updateWithNotes : Day -> DayNotes -> Day
+updateWithNotes day dayNotes =
     { day | notes = dayNotes }
 
 
@@ -192,7 +196,7 @@ dailyWorktime day =
                     Nothing
     in
     day.chores
-        |> Array.map Chore.choreTime
+        |> Array.map Chore.duration
         |> Array.foldl maybeAdd (Just 0)
 
 

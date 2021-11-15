@@ -1,4 +1,4 @@
-module Chore exposing (Chore, ChoreIndex, ChoreMsg(..), choreDecoder, choreTime, emptyChore, encodeChore, updateChore, viewChore)
+module Chore exposing (Chore, Msg(..), decoder, duration, emptyChore, encode, update, view)
 
 import Array exposing (Array)
 import Html exposing (Html, button, div, input, text, time)
@@ -17,7 +17,7 @@ type alias Chore =
     }
 
 
-type ChoreMsg
+type Msg
     = RemoveChore
     | SetProject String
     | SetComment String
@@ -25,10 +25,6 @@ type ChoreMsg
     | SetStopTime String
     | KeyDownStartTime Int
     | KeyDownStopTime Int
-
-
-type alias ChoreIndex =
-    Int
 
 
 emptyChore : Maybe TimeInMinutes -> Chore
@@ -40,8 +36,8 @@ emptyChore startTime =
     }
 
 
-viewChore : Chore -> Html ChoreMsg
-viewChore chore =
+view : Chore -> Html Msg
+view chore =
     let
         onKey : (Int -> msg) -> Html.Attribute msg
         onKey tagger =
@@ -110,8 +106,8 @@ viewChore chore =
 
 {-| Returns a list of chores in stead of just one, since certain commands return two chores (if a chore was split) or none (if a chore was removed).
 -}
-updateChore : ChoreMsg -> Chore -> Array Chore
-updateChore msg chore =
+update : Msg -> Chore -> Array Chore
+update msg chore =
     case msg of
         RemoveChore ->
             Array.empty
@@ -144,11 +140,11 @@ updateChore msg chore =
 
 
 
-{- Encode or decode full model. -}
+{- Encode or decode full chore. -}
 
 
-encodeChore : Chore -> Encode.Value
-encodeChore chore =
+encode : Chore -> Encode.Value
+encode chore =
     let
         startTime =
             case chore.startTime of
@@ -177,8 +173,8 @@ encodeChore chore =
         )
 
 
-choreDecoder : Decode.Decoder Chore
-choreDecoder =
+decoder : Decode.Decoder Chore
+decoder =
     Decode.map4 Chore
         (Decode.field "project" Decode.string)
         (Decode.field "comment" Decode.string)
@@ -190,8 +186,8 @@ choreDecoder =
 {- helper functions -}
 
 
-choreTime : Chore -> Maybe TimeInMinutes
-choreTime chore =
+duration : Chore -> Maybe TimeInMinutes
+duration chore =
     case ( chore.startTime, chore.stopTime ) of
         ( Just startTime, Just stopTime ) ->
             if (stopTime - startTime) < 0 then

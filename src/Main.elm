@@ -4,7 +4,7 @@ import Array exposing (Array)
 import Array.Extra
 import Browser
 import Date exposing (Date)
-import Day exposing (Day, DayHours, DayIndex, DayMsg, DayNotes)
+import Day exposing (Day, DayHours, DayIndex, DayNotes)
 import File exposing (File)
 import File.Download as Download
 import File.Select as Select
@@ -42,7 +42,7 @@ type alias Model =
 
 
 type Msg
-    = ForDayXDo DayIndex DayMsg
+    = ForDayXDo DayIndex Day.Msg
     | SetNotes String
     | Save HoursOrNotes
     | Load HoursOrNotes LoadMsgStep
@@ -127,7 +127,7 @@ view model =
 
         dayToHtml : Maybe Date -> Int -> ( Maybe TimeInMinutes, Day ) -> Html Msg
         dayToHtml startDate dayIndex dayData =
-            Day.viewDay startDate (Tuple.first dayData) dayIndex (Tuple.second dayData)
+            Day.view startDate (Tuple.first dayData) dayIndex (Tuple.second dayData)
                 |> Html.map (ForDayXDo dayIndex)
     in
     div []
@@ -168,7 +168,7 @@ update msg model =
             let
                 newModel : Model
                 newModel =
-                    { model | days = Array.Extra.update dayIndex (Day.updateDay dayMsg) model.days }
+                    { model | days = Array.Extra.update dayIndex (Day.update dayMsg) model.days }
             in
             updateAndSave newModel
 
@@ -285,7 +285,7 @@ encode model =
     in
     Encode.object
         (List.concat
-            [ [ ( "days", Encode.array Day.encodeDay model.days ) ]
+            [ [ ( "days", Encode.array Day.encode model.days ) ]
             , startDate
             , [ ( "notes", Encode.string model.notes ) ]
             ]
@@ -295,7 +295,7 @@ encode model =
 decoder : Decode.Decoder Model
 decoder =
     Decode.map3 Model
-        (Decode.field "days" (Decode.array Day.dayDecoder))
+        (Decode.field "days" (Decode.array Day.decoder))
         (Decode.maybe <| Decode.map Date.fromRataDie <| Decode.field "startDate" Decode.int)
         (Decode.field "notes" Decode.string)
 
@@ -330,7 +330,7 @@ encodeHours model =
     in
     Encode.object
         (List.concat
-            [ [ ( "days", Encode.array Day.encodeDayHours model.days ) ]
+            [ [ ( "days", Encode.array Day.encodeHours model.days ) ]
             , startDate
             ]
         )
@@ -339,13 +339,13 @@ encodeHours model =
 decoderHours : Decode.Decoder ModelHours
 decoderHours =
     Decode.map2 ModelHours
-        (Decode.field "days" (Decode.array Day.dayDecoderHours))
+        (Decode.field "days" (Decode.array Day.decoderHours))
         (Decode.maybe <| Decode.map Date.fromRataDie <| Decode.field "startDate" Decode.int)
 
 
 updateModelWithHours : Model -> ModelHours -> Model
 updateModelWithHours model modelHours =
-    { model | days = Array.Extra.map2 Day.updateDayWithHours model.days modelHours.days, startDate = modelHours.startDate }
+    { model | days = Array.Extra.map2 Day.updateWithHours model.days modelHours.days, startDate = modelHours.startDate }
 
 
 
@@ -361,7 +361,7 @@ type alias ModelNotes =
 encodeNotes : Model -> Encode.Value
 encodeNotes model =
     Encode.object
-        [ ( "days", Encode.array Day.encodeDayNotes model.days )
+        [ ( "days", Encode.array Day.encodeNotes model.days )
         , ( "notes", Encode.string model.notes )
         ]
 
@@ -369,10 +369,10 @@ encodeNotes model =
 decoderNotes : Decode.Decoder ModelNotes
 decoderNotes =
     Decode.map2 ModelNotes
-        (Decode.field "days" (Decode.array Day.dayDecoderNotes))
+        (Decode.field "days" (Decode.array Day.decoderNotes))
         (Decode.field "notes" Decode.string)
 
 
 updateModelWithNotes : Model -> ModelNotes -> Model
 updateModelWithNotes model modelNotes =
-    { model | notes = modelNotes.notes, days = Array.Extra.map2 Day.updateDayWithNotes model.days modelNotes.days }
+    { model | notes = modelNotes.notes, days = Array.Extra.map2 Day.updateWithNotes model.days modelNotes.days }
