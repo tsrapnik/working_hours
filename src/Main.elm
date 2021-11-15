@@ -1,4 +1,4 @@
-port module Main exposing (..)
+port module Main exposing (main)
 
 import Array exposing (Array)
 import Array.Extra
@@ -70,6 +70,11 @@ type LoadMsgStep
     | ParsedStep String
 
 
+emptyWeek : Array Day
+emptyWeek =
+    Array.repeat 5 { chores = Array.empty, notes = "" }
+
+
 init : Encode.Value -> ( Model, Cmd Msg )
 init flags =
     case Decode.decodeValue decoder flags of
@@ -85,11 +90,6 @@ init flags =
               }
             , Task.perform (\date -> GetDateAnd ClearHours (UseDateStep date)) Date.today
             )
-
-
-emptyWeek : Array Day
-emptyWeek =
-    Array.repeat 5 { chores = Array.empty, notes = "" }
 
 
 view : Model -> Html Msg
@@ -125,14 +125,15 @@ view model =
         daysData =
             Array.Extra.zip requiredMinutes model.days
 
-        dayDataToHtml : Maybe Date -> Int -> ( Maybe TimeInMinutes, Day ) -> Html Msg
-        dayDataToHtml startDate dayIndex dayData =
-            Html.map (ForDayXDo dayIndex) (Day.viewDay startDate (Tuple.first dayData) dayIndex (Tuple.second dayData))
+        dayToHtml : Maybe Date -> Int -> ( Maybe TimeInMinutes, Day ) -> Html Msg
+        dayToHtml startDate dayIndex dayData =
+            Day.viewDay startDate (Tuple.first dayData) dayIndex (Tuple.second dayData)
+                |> Html.map (ForDayXDo dayIndex)
     in
     div []
         [ div [ class "week" ]
             (Array.toList
-                (Array.indexedMap (dayDataToHtml model.startDate) daysData)
+                (Array.indexedMap (dayToHtml model.startDate) daysData)
             )
         , div [ class "loadSave" ]
             [ button [ class "load_hours", onClick (Load Hours LoadStep) ] [ text "load hours" ]
@@ -267,6 +268,10 @@ update msg model =
                     updateAndSave newModel
 
 
+
+{- Encode or decode full model. -}
+
+
 encode : Model -> Encode.Value
 encode model =
     let
@@ -287,12 +292,29 @@ encode model =
         )
 
 
-encodeNotes : Model -> Encode.Value
-encodeNotes model =
-    Encode.object
-        [ ( "days", Encode.array Day.encodeDayNotes model.days )
-        , ( "notes", Encode.string model.notes )
-        ]
+decoder : Decode.Decoder Model
+decoder =
+    Decode.map3 Model
+        (Decode.field "days" (Decode.array Day.dayDecoder))
+        (Decode.maybe <| Decode.map Date.fromRataDie <| Decode.field "startDate" Decode.int)
+        (Decode.field "notes" Decode.string)
+
+
+
+{- Encode or decode hours only. -}
+
+
+type alias ModelHours =
+    { days : Array DayHours
+    , startDate : Maybe Date
+    }
+
+
+emptyModelHours : Date -> ModelHours
+emptyModelHours date =
+    { days = Array.repeat 5 { chores = Array.empty }
+    , startDate = Just date
+    }
 
 
 encodeHours : Model -> Encode.Value
@@ -314,12 +336,20 @@ encodeHours model =
         )
 
 
-decoder : Decode.Decoder Model
-decoder =
-    Decode.map3 Model
-        (Decode.field "days" (Decode.array Day.dayDecoder))
+decoderHours : Decode.Decoder ModelHours
+decoderHours =
+    Decode.map2 ModelHours
+        (Decode.field "days" (Decode.array Day.dayDecoderHours))
         (Decode.maybe <| Decode.map Date.fromRataDie <| Decode.field "startDate" Decode.int)
-        (Decode.field "notes" Decode.string)
+
+
+updateModelWithHours : Model -> ModelHours -> Model
+updateModelWithHours model modelHours =
+    { model | days = Array.Extra.map2 Day.updateDayWithHours model.days modelHours.days, startDate = modelHours.startDate }
+
+
+
+{- Encode or decode notes only. -}
 
 
 type alias ModelNotes =
@@ -328,9 +358,12 @@ type alias ModelNotes =
     }
 
 
-updateModelWithNotes : Model -> ModelNotes -> Model
-updateModelWithNotes model modelNotes =
-    { model | notes = modelNotes.notes, days = Array.Extra.map2 Day.updateDayWithNotes model.days modelNotes.days }
+encodeNotes : Model -> Encode.Value
+encodeNotes model =
+    Encode.object
+        [ ( "days", Encode.array Day.encodeDayNotes model.days )
+        , ( "notes", Encode.string model.notes )
+        ]
 
 
 decoderNotes : Decode.Decoder ModelNotes
@@ -340,26 +373,6 @@ decoderNotes =
         (Decode.field "notes" Decode.string)
 
 
-type alias ModelHours =
-    { days : Array DayHours
-    , startDate : Maybe Date
-    }
-
-
-emptyModelHours : Date -> ModelHours
-emptyModelHours date =
-    { days = Array.repeat 5 { chores = Array.empty }
-    , startDate = Just date
-    }
-
-
-updateModelWithHours : Model -> ModelHours -> Model
-updateModelWithHours model modelHours =
-    { model | days = Array.Extra.map2 Day.updateDayWithHours model.days modelHours.days, startDate = modelHours.startDate }
-
-
-decoderHours : Decode.Decoder ModelHours
-decoderHours =
-    Decode.map2 ModelHours
-        (Decode.field "days" (Decode.array Day.dayDecoderHours))
-        (Decode.maybe <| Decode.map Date.fromRataDie <| Decode.field "startDate" Decode.int)
+updateModelWithNotes : Model -> ModelNotes -> Model
+updateModelWithNotes model modelNotes =
+    { model | notes = modelNotes.notes, days = Array.Extra.map2 Day.updateDayWithNotes model.days modelNotes.days }

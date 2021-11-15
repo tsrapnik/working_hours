@@ -69,14 +69,14 @@ viewChore chore =
                 [ class "project"
                 , type_ "text"
                 , value chore.project
-                , onInput (\project -> SetProject project)
+                , onInput SetProject
                 ]
                 []
             , input
                 [ class "comment"
                 , type_ "text"
                 , value chore.comment
-                , onInput (\comment -> SetComment comment)
+                , onInput SetComment
                 ]
                 []
             , button
@@ -89,8 +89,8 @@ viewChore chore =
             [ input
                 ([ class "start_time"
                  , type_ "time"
-                 , onKey (\key -> KeyDownStartTime key)
-                 , onInput (\startTime -> SetStartTime startTime)
+                 , onKey KeyDownStartTime
+                 , onInput SetStartTime
                  ]
                     ++ startTimeValue
                 )
@@ -98,8 +98,8 @@ viewChore chore =
             , input
                 ([ class "stop_time"
                  , type_ "time"
-                 , onKey (\key -> KeyDownStopTime key)
-                 , onInput (\stopTime -> SetStopTime stopTime)
+                 , onKey KeyDownStopTime
+                 , onInput SetStopTime
                  ]
                     ++ stopTimeValue
                 )
@@ -143,6 +143,10 @@ updateChore msg chore =
                 Array.fromList [ chore ]
 
 
+
+{- Encode or decode full model. -}
+
+
 encodeChore : Chore -> Encode.Value
 encodeChore chore =
     let
@@ -180,6 +184,10 @@ choreDecoder =
         (Decode.field "comment" Decode.string)
         (Decode.maybe (Decode.field "startTime" Decode.int))
         (Decode.maybe (Decode.field "stopTime" Decode.int))
+
+
+
+{- helper functions -}
 
 
 choreTime : Chore -> Maybe TimeInMinutes

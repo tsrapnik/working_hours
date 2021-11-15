@@ -47,6 +47,12 @@ type alias DayIndex =
 
 viewDay : Maybe Date -> Maybe TimeInMinutes -> DayIndex -> Day -> Html DayMsg
 viewDay startDate requiredMinutes dayIndex day =
+    let
+        choreToHtml : ChoreIndex -> Chore -> Html DayMsg
+        choreToHtml index chore =
+            Chore.viewChore chore
+                |> Html.map (ForChoreXDo index)
+    in
     div [ class "day" ]
         [ div [] [ text (dayIndexToString dayIndex) ]
         , case startDate of
@@ -55,7 +61,7 @@ viewDay startDate requiredMinutes dayIndex day =
 
             Nothing ->
                 div [] []
-        , div [ class "chores" ] (Array.toList (Array.indexedMap (\index chore -> Html.map (ForChoreXDo index) (Chore.viewChore chore)) day.chores))
+        , div [ class "chores" ] (Array.toList (Array.indexedMap choreToHtml day.chores))
         , case requiredMinutes of
             Just minutes ->
                 if minutes > 0 then
@@ -71,7 +77,7 @@ viewDay startDate requiredMinutes dayIndex day =
             [ class "day_notes"
             , rows 10
             , value day.notes
-            , onInput (\notes -> SetDayNotes notes)
+            , onInput SetDayNotes
             ]
             []
         ]
@@ -99,14 +105,8 @@ updateDay msg day =
             { day | chores = Array.Extra2.updateWithArray choreIndex (Chore.updateChore choreMsg) day.chores }
 
 
-updateDayWithNotes : Day -> DayNotes -> Day
-updateDayWithNotes day dayNotes =
-    { day | notes = dayNotes }
 
-
-updateDayWithHours : Day -> DayHours -> Day
-updateDayWithHours day dayHours =
-    { day | chores = dayHours.chores }
+{- Encode or decode full model. -}
 
 
 encodeDay : Day -> Encode.Value
@@ -117,10 +117,20 @@ encodeDay day =
         ]
 
 
-encodeDayNotes : Day -> Encode.Value
-encodeDayNotes day =
-    Encode.object
-        [ ( "notes", Encode.string day.notes ) ]
+dayDecoder : Decode.Decoder Day
+dayDecoder =
+    Decode.map2 Day
+        (Decode.field "chores" (Decode.array Chore.choreDecoder))
+        (Decode.field "notes" Decode.string)
+
+
+
+{- Encode or decode hours only. -}
+
+
+type alias DayHours =
+    { chores : Array Chore
+    }
 
 
 encodeDayHours : Day -> Encode.Value
@@ -130,15 +140,29 @@ encodeDayHours day =
         ]
 
 
+dayDecoderHours : Decode.Decoder DayHours
+dayDecoderHours =
+    Decode.map DayHours
+        (Decode.field "chores" (Decode.array Chore.choreDecoder))
+
+
+updateDayWithHours : Day -> DayHours -> Day
+updateDayWithHours day dayHours =
+    { day | chores = dayHours.chores }
+
+
+
+{- Encode or decode notes only. -}
+
+
 type alias DayNotes =
     String
 
 
-dayDecoder : Decode.Decoder Day
-dayDecoder =
-    Decode.map2 Day
-        (Decode.field "chores" (Decode.array Chore.choreDecoder))
-        (Decode.field "notes" Decode.string)
+encodeDayNotes : Day -> Encode.Value
+encodeDayNotes day =
+    Encode.object
+        [ ( "notes", Encode.string day.notes ) ]
 
 
 dayDecoderNotes : Decode.Decoder DayNotes
@@ -146,15 +170,13 @@ dayDecoderNotes =
     Decode.field "notes" Decode.string
 
 
-type alias DayHours =
-    { chores : Array Chore
-    }
+updateDayWithNotes : Day -> DayNotes -> Day
+updateDayWithNotes day dayNotes =
+    { day | notes = dayNotes }
 
 
-dayDecoderHours : Decode.Decoder DayHours
-dayDecoderHours =
-    Decode.map DayHours
-        (Decode.field "chores" (Decode.array Chore.choreDecoder))
+
+{- helper functions -}
 
 
 dailyWorktime : Day -> Maybe TimeInMinutes
