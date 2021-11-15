@@ -3,11 +3,9 @@ port module Main exposing (..)
 import Array exposing (Array)
 import Array.Extra
 import Browser
-import Chore exposing (DateMsg(..), DateMsgStep(..), HoursOrNotes(..), LoadMsgStep(..), Msg(..))
-import Time2 exposing (TimeInMinutes)
 import Date exposing (Date)
-import Day exposing (Day, DayHours, DayNotes)
-import File
+import Day exposing (Day, DayHours, DayIndex, DayMsg, DayNotes)
+import File exposing (File)
 import File.Download as Download
 import File.Select as Select
 import Html exposing (Html, button, div, text, textarea)
@@ -16,6 +14,7 @@ import Html.Events exposing (onClick, onInput)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Task
+import Time2 exposing (TimeInMinutes)
 
 
 port setStorage : Encode.Value -> Cmd msg
@@ -40,6 +39,35 @@ type alias Model =
     , startDate : Maybe Date
     , notes : String
     }
+
+
+type Msg
+    = ForDayXDo DayIndex DayMsg
+    | SetNotes String
+    | Save HoursOrNotes
+    | Load HoursOrNotes LoadMsgStep
+    | GetDateAnd DateMsg DateMsgStep
+
+
+type HoursOrNotes
+    = Hours
+    | Notes
+
+
+type DateMsg
+    = ClearHours
+    | UpdateDate
+
+
+type DateMsgStep
+    = GetDateStep
+    | UseDateStep Date
+
+
+type LoadMsgStep
+    = LoadStep
+    | LoadedStep File
+    | ParsedStep String
 
 
 init : Encode.Value -> ( Model, Cmd Msg )
@@ -99,7 +127,7 @@ view model =
 
         dayDataToHtml : Maybe Date -> Int -> ( Maybe TimeInMinutes, Day ) -> Html Msg
         dayDataToHtml startDate dayIndex dayData =
-            Day.viewDay startDate (Tuple.first dayData) dayIndex (Tuple.second dayData)
+            Html.map (ForDayXDo dayIndex) (Day.viewDay startDate (Tuple.first dayData) dayIndex (Tuple.second dayData))
     in
     div []
         [ div [ class "week" ]

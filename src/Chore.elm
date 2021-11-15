@@ -1,45 +1,20 @@
-module Chore exposing
-    ( Chore
-    , ChoreIndex
-    , ChoreMsg(..)
-    , DateMsg(..)
-    , DateMsgStep(..)
-    , DayIndex
-    , DayMsg(..)
-    , HoursOrNotes(..)
-    , LoadMsgStep(..)
-    , Msg(..)
-    , choreDecoder
-    , choreTime
-    , emptyChore
-    , encodeChore
-    , updateChore
-    , viewChore
-    )
+module Chore exposing (Chore, ChoreIndex, ChoreMsg(..), choreDecoder, choreTime, emptyChore, encodeChore, updateChore, viewChore)
 
 import Array exposing (Array)
-import Time2 exposing (TimeInMinutes)
-import Date exposing (Date)
-import File exposing (File)
 import Html exposing (Html, button, div, input, text, time)
 import Html.Attributes exposing (..)
 import Html.Events exposing (keyCode, on, onClick, onInput)
 import Json.Decode as Decode
 import Json.Encode as Encode
+import Time2 exposing (TimeInMinutes)
 
 
-
--- TODO: Move Msg, HoursOrNotes, LoadMsgStep, DateMsgStep and DateMsg, ...
-
-
-type alias DayIndex =
-    Int
-
-
-type DayMsg
-    = SetDayNotes String
-    | AddChore
-    | ForChoreXDo ChoreIndex ChoreMsg
+type alias Chore =
+    { project : String
+    , comment : String
+    , startTime : Maybe TimeInMinutes
+    , stopTime : Maybe TimeInMinutes
+    }
 
 
 type ChoreMsg
@@ -50,47 +25,6 @@ type ChoreMsg
     | SetStopTime String
     | KeyDownStartTime Int
     | KeyDownStopTime Int
-
-
-type Msg
-    = ForDayXDo DayIndex DayMsg
-    | SetNotes String
-    | Save HoursOrNotes
-    | Load HoursOrNotes LoadMsgStep
-    | GetDateAnd DateMsg DateMsgStep
-
-
-type HoursOrNotes
-    = Hours
-    | Notes
-
-
-type DateMsg
-    = ClearHours
-    | UpdateDate
-
-
-type DateMsgStep
-    = GetDateStep
-    | UseDateStep Date
-
-
-type LoadMsgStep
-    = LoadStep
-    | LoadedStep File
-    | ParsedStep String
-
-
-
----------------------------------------
-
-
-type alias Chore =
-    { project : String
-    , comment : String
-    , startTime : Maybe TimeInMinutes
-    , stopTime : Maybe TimeInMinutes
-    }
 
 
 type alias ChoreIndex =
@@ -106,8 +40,8 @@ emptyChore startTime =
     }
 
 
-viewChore : DayIndex -> ChoreIndex -> Chore -> Html Msg
-viewChore dayIndex choreIndex chore =
+viewChore : Chore -> Html ChoreMsg
+viewChore chore =
     let
         onKey : (Int -> msg) -> Html.Attribute msg
         onKey tagger =
@@ -135,19 +69,19 @@ viewChore dayIndex choreIndex chore =
                 [ class "project"
                 , type_ "text"
                 , value chore.project
-                , onInput (\project -> ForDayXDo dayIndex (ForChoreXDo choreIndex (SetProject project)))
+                , onInput (\project -> SetProject project)
                 ]
                 []
             , input
                 [ class "comment"
                 , type_ "text"
                 , value chore.comment
-                , onInput (\comment -> ForDayXDo dayIndex (ForChoreXDo choreIndex (SetComment comment)))
+                , onInput (\comment -> SetComment comment)
                 ]
                 []
             , button
                 [ class "close_button"
-                , onClick (ForDayXDo dayIndex (ForChoreXDo choreIndex RemoveChore))
+                , onClick RemoveChore
                 ]
                 [ text "x" ]
             ]
@@ -155,8 +89,8 @@ viewChore dayIndex choreIndex chore =
             [ input
                 ([ class "start_time"
                  , type_ "time"
-                 , onKey (\key -> ForDayXDo dayIndex (ForChoreXDo choreIndex (KeyDownStartTime key)))
-                 , onInput (\startTime -> ForDayXDo dayIndex (ForChoreXDo choreIndex (SetStartTime startTime)))
+                 , onKey (\key -> KeyDownStartTime key)
+                 , onInput (\startTime -> SetStartTime startTime)
                  ]
                     ++ startTimeValue
                 )
@@ -164,8 +98,8 @@ viewChore dayIndex choreIndex chore =
             , input
                 ([ class "stop_time"
                  , type_ "time"
-                 , onKey (\key -> ForDayXDo dayIndex (ForChoreXDo choreIndex (KeyDownStopTime key)))
-                 , onInput (\stopTime -> ForDayXDo dayIndex (ForChoreXDo choreIndex (SetStopTime stopTime)))
+                 , onKey (\key -> KeyDownStopTime key)
+                 , onInput (\stopTime -> SetStopTime stopTime)
                  ]
                     ++ stopTimeValue
                 )

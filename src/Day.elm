@@ -1,6 +1,8 @@
 module Day exposing
     ( Day
     , DayHours
+    , DayIndex
+    , DayMsg
     , DayNotes
     , dailyWorktime
     , dayDecoder
@@ -17,14 +19,14 @@ module Day exposing
 
 import Array exposing (Array)
 import Array.Extra2
-import Chore exposing (Chore, ChoreMsg(..), DateMsg(..), DateMsgStep(..), DayIndex, DayMsg(..), HoursOrNotes(..), LoadMsgStep(..), Msg(..))
-import Time2 exposing (TimeInMinutes)
+import Chore exposing (Chore, ChoreIndex, ChoreMsg(..))
 import Date exposing (Date)
 import Html exposing (Html, button, div, text, textarea, time)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 import Json.Decode as Decode
 import Json.Encode as Encode
+import Time2 exposing (TimeInMinutes)
 
 
 type alias Day =
@@ -33,7 +35,17 @@ type alias Day =
     }
 
 
-viewDay : Maybe Date -> Maybe TimeInMinutes -> DayIndex -> Day -> Html Msg
+type DayMsg
+    = SetDayNotes String
+    | AddChore
+    | ForChoreXDo ChoreIndex ChoreMsg
+
+
+type alias DayIndex =
+    Int
+
+
+viewDay : Maybe Date -> Maybe TimeInMinutes -> DayIndex -> Day -> Html DayMsg
 viewDay startDate requiredMinutes dayIndex day =
     div [ class "day" ]
         [ div [] [ text (dayIndexToString dayIndex) ]
@@ -43,7 +55,7 @@ viewDay startDate requiredMinutes dayIndex day =
 
             Nothing ->
                 div [] []
-        , div [ class "chores" ] (Array.toList (Array.indexedMap (\choreIndex chore -> Chore.viewChore dayIndex choreIndex chore) day.chores))
+        , div [ class "chores" ] (Array.toList (Array.indexedMap (\index chore -> Html.map (ForChoreXDo index) (Chore.viewChore chore)) day.chores))
         , case requiredMinutes of
             Just minutes ->
                 if minutes > 0 then
@@ -54,12 +66,12 @@ viewDay startDate requiredMinutes dayIndex day =
 
             Nothing ->
                 time [ class "required_minutes_white" ] [ text Time2.invalidTimeString ]
-        , button [ onClick (ForDayXDo dayIndex AddChore) ] [ text "add chore" ]
+        , button [ onClick AddChore ] [ text "add chore" ]
         , textarea
             [ class "day_notes"
             , rows 10
             , value day.notes
-            , onInput (\notes -> ForDayXDo dayIndex (SetDayNotes notes))
+            , onInput (\notes -> SetDayNotes notes)
             ]
             []
         ]
@@ -161,6 +173,7 @@ dailyWorktime day =
         |> Array.map Chore.choreTime
         |> Array.foldl maybeAdd (Just 0)
 
+
 dayIndexToString : DayIndex -> String
 dayIndexToString dayIndex =
     case dayIndex of
@@ -181,4 +194,3 @@ dayIndexToString dayIndex =
 
         _ ->
             "unknown day"
-
