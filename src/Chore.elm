@@ -18,7 +18,7 @@ module Chore exposing
     )
 
 import Array exposing (Array)
-import Common exposing (TimeInMinutes)
+import Time2 exposing (TimeInMinutes)
 import Date exposing (Date)
 import File exposing (File)
 import Html exposing (Html, button, div, input, text, time)
@@ -116,7 +116,7 @@ viewChore dayIndex choreIndex chore =
         startTimeValue =
             case chore.startTime of
                 Just time ->
-                    [ value (Common.minutesToString time) ]
+                    [ value (Time2.minutesToString time) ]
 
                 Nothing ->
                     []
@@ -124,7 +124,7 @@ viewChore dayIndex choreIndex chore =
         stopTimeValue =
             case chore.stopTime of
                 Just time ->
-                    [ value (Common.minutesToString time) ]
+                    [ value (Time2.minutesToString time) ]
 
                 Nothing ->
                     []
@@ -189,10 +189,10 @@ updateChore msg chore =
             Array.fromList [ { chore | comment = comment } ]
 
         SetStartTime startTime ->
-            Array.fromList [ { chore | startTime = Common.stringToMinutes startTime } ]
+            Array.fromList [ { chore | startTime = Time2.stringToMinutes startTime } ]
 
         SetStopTime stopTime ->
-            Array.fromList [ { chore | stopTime = Common.stringToMinutes stopTime } ]
+            Array.fromList [ { chore | stopTime = Time2.stringToMinutes stopTime } ]
 
         KeyDownStartTime key ->
             if key == 13 then

@@ -18,7 +18,7 @@ module Day exposing
 import Array exposing (Array)
 import Array.Extra2
 import Chore exposing (Chore, ChoreMsg(..), DateMsg(..), DateMsgStep(..), DayIndex, DayMsg(..), HoursOrNotes(..), LoadMsgStep(..), Msg(..))
-import Common exposing (TimeInMinutes)
+import Time2 exposing (TimeInMinutes)
 import Date exposing (Date)
 import Html exposing (Html, button, div, text, textarea, time)
 import Html.Attributes exposing (..)
@@ -36,7 +36,7 @@ type alias Day =
 viewDay : Maybe Date -> Maybe TimeInMinutes -> DayIndex -> Day -> Html Msg
 viewDay startDate requiredMinutes dayIndex day =
     div [ class "day" ]
-        [ div [] [ text (Common.intToDay dayIndex) ]
+        [ div [] [ text (dayIndexToString dayIndex) ]
         , case startDate of
             Just date ->
                 div [] [ text <| Date.toIsoString <| Date.add Date.Days dayIndex date ]
@@ -47,13 +47,13 @@ viewDay startDate requiredMinutes dayIndex day =
         , case requiredMinutes of
             Just minutes ->
                 if minutes > 0 then
-                    time [ class "required_minutes_red" ] [ text (Common.minutesToString minutes) ]
+                    time [ class "required_minutes_red" ] [ text (Time2.minutesToString minutes) ]
 
                 else
-                    time [ class "required_minutes_green" ] [ text (Common.minutesToString -minutes) ]
+                    time [ class "required_minutes_green" ] [ text (Time2.minutesToString -minutes) ]
 
             Nothing ->
-                time [ class "required_minutes_white" ] [ text Common.invalidTimeString ]
+                time [ class "required_minutes_white" ] [ text Time2.invalidTimeString ]
         , button [ onClick (ForDayXDo dayIndex AddChore) ] [ text "add chore" ]
         , textarea
             [ class "day_notes"
@@ -160,3 +160,25 @@ dailyWorktime day =
     day.chores
         |> Array.map Chore.choreTime
         |> Array.foldl maybeAdd (Just 0)
+
+dayIndexToString : DayIndex -> String
+dayIndexToString dayIndex =
+    case dayIndex of
+        0 ->
+            "monday"
+
+        1 ->
+            "tuesday"
+
+        2 ->
+            "wednesday"
+
+        3 ->
+            "thursday"
+
+        4 ->
+            "friday"
+
+        _ ->
+            "unknown day"
+

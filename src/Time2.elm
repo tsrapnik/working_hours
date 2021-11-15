@@ -1,4 +1,4 @@
-module Common exposing (TimeInMinutes, intToDay, invalidTimeString, minutesToString, stringToMinutes)
+module Time2 exposing (TimeInMinutes, invalidTimeString, minutesToString, stringToMinutes)
 
 
 
@@ -72,25 +72,3 @@ stringToMinutes string =
 
         _ ->
             Nothing
-
-
-intToDay : Int -> String
-intToDay dayIndex =
-    case dayIndex of
-        0 ->
-            "monday"
-
-        1 ->
-            "tuesday"
-
-        2 ->
-            "wednesday"
-
-        3 ->
-            "thursday"
-
-        4 ->
-            "friday"
-
-        _ ->
-            "unknown day"

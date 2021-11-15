@@ -4,7 +4,7 @@ import Array exposing (Array)
 import Array.Extra
 import Browser
 import Chore exposing (DateMsg(..), DateMsgStep(..), HoursOrNotes(..), LoadMsgStep(..), Msg(..))
-import Common exposing (TimeInMinutes)
+import Time2 exposing (TimeInMinutes)
 import Date exposing (Date)
 import Day exposing (Day, DayHours, DayNotes)
 import File
